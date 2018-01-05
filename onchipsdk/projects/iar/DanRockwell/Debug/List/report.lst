@@ -1,0 +1,197 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\report.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC2F2.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\report.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\report.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\report.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\report.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to manage temperature reporting.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          
+     16          // SDK includes
+     17          #include "dn_system.h"
+     18          #include "dn_fs.h"
+     19          #include "dn_api_param.h"
+     20          #include "dn_exe_hdr.h"
+     21          #include "dn_common.h"
+     22          #include "dn_system.h"
+     23          
+     24          // App includes
+     25          #include "debug.h"
+     26          #include "alarm.h"
+     27          #include "ltc2984.h"
+     28          #include "config.h"
+     29          #include "report.h"
+     30          
+     31          
+     32          //=========================== defines and enums ===============================
+     33          
+     34          #define TASK_APP_REPORT_STK_SIZE	256
+     35          #define TASK_APP_REPORT_PRIORITY	53
+     36          #define TASK_APP_REPORT_NAME		"TASK_REPORT"
+     37          
+     38          
+     39          //=========================== module parameters ======================================
+     40          
+     41          static LTC2984Data_t	mTemperatureReadings;
+     42          static ErrorMap_t	mErrorMap[kMaxNumberOfTempertures];
+     43          static OS_EVENT		*mDataLock;
+     44          
+     45          
+     46          //=========================== prototypes ======================================
+     47          
+     48          static void LockData(void);
+     49          static void UnlockData(void);
+     50          
+     51          
+     52          /**
+     53          *	Initialize the alarm manager
+     54          */
+     55          void InitReport( void )
+     56          {
+     57          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Report Manager\r\n" );
+     58          
+     59          	// Create shared data lock
+     60          	mDataLock = OSSemCreate( 1 );
+     61          }
+     62          
+     63          
+     64          /**
+     65          *	Run alarm manager to process any alarms and temperatures
+     66          */
+     67          void RunReportManager( void )
+     68          {
+     69          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Running Report Manager\r\n" );
+     70          	 
+     71          	LockData();
+     72          
+     73          	// Get temperature readings
+     74          	GetCurrentTemperatures( &mTemperatureReadings );
+     75          
+     76          	// Get active alarms
+     77          	GetActiveAlarms( &mErrorMap[0] );
+     78          
+     79          	// Send reports
+     80          	for( int channel = 0; channel < kMaxNumberOfTempertures; channel++ )
+     81          	{
+     82                      // Get configuration
+     83                      ChannelConfiguration_t channelConfig;
+     84                      GetChannelConfiguration( channel, (unsigned char *)&channelConfig );
+     85          
+     86                      if( 1 == channelConfig.channelEnable )
+     87                      {
+     88                          if( kAlarmId_None == mErrorMap[channel].error )
+     89          		{
+     90                              SendTemperatures( channel, mTemperatureReadings.channel[channel].temperature );
+     91          		}
+     92          		else
+     93          		{
+     94                              SendAlarm( channel, mErrorMap[channel].error, mTemperatureReadings.channel[channel].temperature );
+     95          		}
+     96                      }
+     97          	}
+     98          
+     99          	UnlockData();
+    100          }
+    101          
+    102          
+    103          static void LockData( void )
+    104          {
+    105              unsigned char osErr;
+    106              OSSemPend(mDataLock, 0, &osErr);
+    107          }
+    108          
+    109          
+    110          static void UnlockData( void )
+    111          {
+    112              OSSemPost(mDataLock);
+    113          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       8   InitReport
+         8   -> DbgPrint
+         8   -> OSSemCreate
+      48   RunReportManager
+        48   -> DbgPrint
+        48   -> GetActiveAlarms
+        48   -> GetChannelConfiguration
+        48   -> GetCurrentTemperatures
+        48   -> OSSemPend
+        48   -> OSSemPost
+        48   -> SendAlarm
+        48   -> SendTemperatures
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable3
+       4  ??DataTable3_1
+      40  ?_0
+      36  ?_1
+      24  InitReport
+     108  RunReportManager
+       4  mDataLock
+     336  mErrorMap
+          mTemperatureReadings
+
+ 
+ 340 bytes in section .bss
+ 216 bytes in section .text
+ 
+ 216 bytes of CODE memory
+ 340 bytes of DATA memory
+
+Errors: none
+Warnings: none

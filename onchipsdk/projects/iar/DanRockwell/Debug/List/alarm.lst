@@ -1,0 +1,360 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:46
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\alarm.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWB7F7.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\alarm.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\alarm.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\alarm.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\alarm.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to manage alarms.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          #include <math.h>
+     17          
+     18          // SDK includes
+     19          #include "dn_system.h"
+     20          #include "dn_fs.h"
+     21          #include "dn_api_param.h"
+     22          #include "dn_exe_hdr.h"
+     23          #include "dn_common.h"
+     24          #include "dn_system.h"
+     25          
+     26          // App includes
+     27          #include "app_common.h"
+     28          #include "debug.h"
+     29          #include "alarm.h"
+     30          #include "ltc2984.h"
+     31          #include "ltc2984_cfg.h"
+     32          #include "config.h"
+     33          
+     34          
+     35          //=========================== defines and enums ===============================
+     36          
+     37          const char *OverTemperatureError  = "Alarm Over Temperature";
+     38          const char *UnderTemperatureError = "Alarm Under Temperature";
+     39          
+     40          
+     41          //=========================== structs =================================
+     42          
+     43          typedef struct
+     44          {
+     45              int errorCount[kMaxNumberOfTempertures];
+     46              LTC2984Data_t temperatureReadings;
+     47              AdcReading_t previousTemperatureReadings[kMaxNumberOfTempertures];
+     48          } AlaramData_t;
+     49          
+     50          
+     51          //=========================== module parameters ======================================
+     52          
+     53          static ErrorMap_t       mErrorMap[kMaxNumberOfTempertures];
+     54          static AlaramData_t     mAlarmData;
+     55          static OS_EVENT		*mDataLock;
+     56          static const float	mDeltaTThreshold = 0.25;	
+     57          static bool             mDeltaTThresholdReached = false;
+     58          
+     59          
+     60          //=========================== prototypes ======================================
+     61          
+     62          static void SetError(unsigned char channel, const char *errorString);
+     63          static void ClearError(unsigned char channel);
+     64          static void LockData(void);
+     65          static void UnlockData(void);
+     66          
+     67          
+     68          /**
+     69           *	Initialize the alarm manager
+     70           */
+     71          void InitAlarm( void )
+     72          {
+     73          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Alarm Manager\r\n" );
+     74          
+     75          	// Create shared data lock
+     76          	mDataLock = OSSemCreate(1);
+     77          }
+     78          
+     79          
+     80          /**
+     81           *	Run alarm manager to process any alarms
+     82           */
+     83          void RunAlarmManager( void )
+     84          {
+     85          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Running Alarm Manager\r\n" );
+     86          
+     87          	// Get configuration
+     88          	ChannelConfiguration_t channelConfig[kMaxNumberOfTempertures];
+     89          	GetConfiguration( (unsigned char *)&channelConfig[0] );
+     90          
+     91          	LockData();
+     92          
+     93          	// Get current temperatures
+     94          	GetCurrentTemperatures( (LTC2984Data_t *)&mAlarmData.temperatureReadings.channel[0] );
+     95          
+     96          	// Reset delta-T error check
+     97          	mDeltaTThresholdReached = false;
+     98          
+     99          	// Check temperature errors
+    100          	int channel;
+    101          	for( channel = 0; channel < kMaxNumberOfTempertures; channel++ )
+    102          	{
+    103          		if( 1 == channelConfig[channel].channelEnable )
+    104          		{
+    105          			// Check for temperature above limit
+    106          			if( channelConfig[channel].highTemperatureLimit_C < mAlarmData.temperatureReadings.channel[channel].temperature )
+    107          			{
+    108          				// Check read status as cause of error
+    109          				mAlarmData.errorCount[channel]++;
+    110          				// Check time at bad read state
+    111          				if( channelConfig[channel].alarmTriggerTime_sec < mAlarmData.errorCount[channel] )
+    112          				{
+    113          					if( VALID != mAlarmData.temperatureReadings.channel[channel].status )
+    114          					{
+    115          						// Signal error by bad sensor
+    116          						DbgPrint( DBG_LEVEL_ERROR, "ERROR. Channel %d, Cause: %s\r\n", 
+    117          							  channel, ChannelFault(mAlarmData.temperatureReadings.channel[channel].status) );
+    118          						SetError( channel, ChannelFault(mAlarmData.temperatureReadings.channel[channel].status) );
+    119          					}
+    120          					else
+    121          					{
+    122          						// Signal error
+    123          						DbgPrint( DBG_LEVEL_ERROR, "ERROR. Channel %d, Over temperature: %fC, limit: %fC\r\n",
+    124          								  channel, channelConfig[channel].highTemperatureLimit_C );
+    125          						SetError( channel, OverTemperatureError );
+    126          					}
+    127          				}	
+    128          			}
+    129          
+    130          			// Check for temperature below limit
+    131          			else if( channelConfig[channel].lowTemperatureLimit_C > mAlarmData.temperatureReadings.channel[channel].temperature )
+    132          			{
+    133          				// Check read status as cause of error
+    134          				mAlarmData.errorCount[channel]++;
+    135          				// Check time at bad read state
+    136          				if( channelConfig[channel].alarmTriggerTime_sec < mAlarmData.errorCount[channel] )
+    137          				{
+    138          					if( VALID != mAlarmData.temperatureReadings.channel[channel].status )
+    139          					{
+    140          						// Signal error by bad sensor
+    141          						DbgPrint( DBG_LEVEL_ERROR, "ERROR. Channel %d, Cause: %s\r\n",
+    142          							  channel, ChannelFault(mAlarmData.temperatureReadings.channel[channel].status) );
+    143          						SetError( channel, ChannelFault(mAlarmData.temperatureReadings.channel[channel].status) );
+    144          					}
+    145          					else
+    146          					{
+    147          						// Signal error
+    148          						DbgPrint( DBG_LEVEL_ERROR, "ERROR. Channel %d, Under temperature: %fC, limit: %fC\r\n",
+    149          							  channel, channelConfig[channel].lowTemperatureLimit_C );
+    150          						SetError( channel, UnderTemperatureError );
+    151          					}
+    152          				}
+    153          			}
+    154          			else
+    155          			{
+    156          				// Reset error counter and clear channel error
+    157          				DbgPrint( DBG_LEVEL_INFO, "STATUS. No alarm on channel %d\r\n", channel );
+    158          				mAlarmData.errorCount[channel] = 0;
+    159          				ClearError( channel );
+    160          			}
+    161          
+    162          			// Check for delta-T greater than 0.25C (delta-T = current - previous)
+    163          			float deltaT = mAlarmData.temperatureReadings.channel[channel].temperature
+    164          						 - mAlarmData.previousTemperatureReadings[channel].temperature; 
+    165          			if( mDeltaTThreshold < fabs(deltaT) )
+    166          			{
+    167          				mDeltaTThresholdReached = true;
+    168          			}
+    169          		}
+    170          	}
+    171          
+    172          	// Update previous temperature readings
+    173          	memcpy( &mAlarmData.previousTemperatureReadings[0], 
+    174          		&mAlarmData.temperatureReadings.channel[0], 
+    175          		(sizeof(AdcReading_t) * kMaxNumberOfTempertures) );
+    176          
+    177          	UnlockData();
+    178          }
+    179          
+    180          
+    181          static void SetError( unsigned char channel, const char *errorString )
+    182          {
+    183          	memset( (void *)&mErrorMap[channel].errorString[0], 0, kMaxErrorStringLength );
+    184          	strncpy( (char *)&mErrorMap[channel].errorString[0], errorString, kMaxNumberOfTempertures );
+    185          	mErrorMap[channel].error = 1;
+    186          }
+    187          
+    188          
+    189          static void ClearError(unsigned char channel)
+    190          {
+    191          	memset( &mErrorMap[channel].errorString[0], 0, kMaxErrorStringLength );
+    192          	mErrorMap[channel].error = 0;
+    193          }
+    194          
+    195          
+    196          void GetActiveAlarms( ErrorMap_t *errors )
+    197          {
+    198          	LockData();
+    199          	memcpy( errors, &mErrorMap[0], sizeof(ErrorMap_t) );
+    200          	UnlockData();
+    201          }
+    202          
+    203          
+    204          bool IsAlarmActive( void )
+    205          {
+    206          	bool alarm = false;
+    207          	for( int i = 0; i < kMaxNumberOfTempertures; i++ )
+    208          	{
+    209          		if( 0 != mErrorMap[i].error )
+    210          		{
+    211          			alarm = true;
+    212          			break;
+    213          		}
+    214          	}
+    215          
+    216          	return( alarm );
+    217          }
+    218          
+    219          
+    220          bool IsDeltaTThresholdReached( void )
+    221          {
+    222          	return( mDeltaTThresholdReached );
+    223          }
+    224          
+    225          
+    226          static void LockData( void )
+    227          {
+    228          	unsigned char osErr;
+    229          	OSSemPend( mDataLock, 0, &osErr );
+    230          }
+    231          
+    232          
+    233          static void UnlockData( void )
+    234          {
+    235          	OSSemPost( mDataLock );
+    236          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       8   GetActiveAlarms
+         8   -> LockData
+         0   -> UnlockData
+         8   -> __aeabi_memcpy
+       8   InitAlarm
+         8   -> DbgPrint
+         8   -> OSSemCreate
+       8   IsAlarmActive
+       0   IsDeltaTThresholdReached
+       8   LockData
+         8   -> OSSemPend
+     304   RunAlarmManager
+       304   -> ChannelFault
+       304   -> DbgPrint
+       304   -> GetConfiguration
+       304   -> GetCurrentTemperatures
+       304   -> LockData
+       304   -> SetError
+       304   -> UnlockData
+       304   -> __aeabi_f2d
+       304   -> __aeabi_fsub
+       304   -> __aeabi_memclr
+       304   -> __aeabi_memcpy4
+       304 __aeabi_cdrcmple
+       304 __aeabi_cfcmple
+      24   SetError
+        24   -> __aeabi_memclr
+        24   -> strncpy
+       0   UnlockData
+         0   -> OSSemPost
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable15
+       4  ??DataTable15_1
+       4  ??DataTable15_2
+       4  ??DataTable15_3
+       4  ??DataTable15_4
+      16  ?Subroutine0
+      24  ?_0
+      24  ?_1
+      40  ?_2
+      32  ?_3
+      32  ?_4
+      56  ?_5
+      56  ?_6
+      36  ?_7
+      24  GetActiveAlarms
+      24  InitAlarm
+      28  IsAlarmActive
+       6  IsDeltaTThresholdReached
+      16  LockData
+     318  RunAlarmManager
+      36  SetError
+       8  UnlockData
+     176  mAlarmData
+          OverTemperatureError
+          UnderTemperatureError
+       4  mDataLock
+       1  mDeltaTThresholdReached
+     264  mErrorMap
+
+ 
+ 269 bytes in section .bss
+ 176 bytes in section .data
+  48 bytes in section .rodata
+ 748 bytes in section .text
+ 
+ 748 bytes of CODE  memory
+  48 bytes of CONST memory
+ 445 bytes of DATA  memory
+
+Errors: none
+Warnings: none

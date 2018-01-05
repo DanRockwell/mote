@@ -1,0 +1,353 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:49
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spline.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC546.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spline.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\spline.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\spline.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spline.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2017, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to compute spline for calibration.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          #include <string.h>
+     10          #include "spline.h"
+     11          
+     12          
+     13          /**
+     14           *  Create a spline
+     15           */
+     16          void Spline_Create( Spline_t *ioSpline, size_t inSize )
+     17          {
+     18              float   *ptr;
+     19              ptr = calloc( inSize * 5, sizeof(float) );
+     20              ioSpline->numPts = inSize;
+     21              ioSpline->x = ptr + inSize * 0;
+     22              ioSpline->y = ptr + inSize * 1;
+     23              ioSpline->b = ptr + inSize * 2;
+     24              ioSpline->c = ptr + inSize * 3;
+     25              ioSpline->d = ptr + inSize * 4;
+     26          }
+     27          
+     28          
+     29          /**
+     30           *  Setup a spline
+     31           */
+     32          void Spline_Setup( Spline_t *ioSpline, size_t inSize, float *inX, float *inY )
+     33          {
+     34              int     i, j, n;
+     35              float   temp_real;
+     36              
+     37              // Copy over the new data
+     38              ioSpline->numPts = inSize;
+     39              memcpy( ioSpline->x, inX, inSize * sizeof(float) );
+     40              memcpy( ioSpline->y, inY, inSize * sizeof(float) );
+     41          
+     42              // Setup for zero based arrays
+     43              n = ioSpline->numPts - 1;
+     44          
+     45              // Sort the spline points on the X coordinate
+     46              // (Using insertion sort here, so I assume we won't have many pts.)
+     47              for( i = 0; i < n; ++i )
+     48              {
+     49                  float x, y;
+     50                  x = ioSpline->x[i];
+     51                  y = ioSpline->y[i];
+     52                  for( j = i - 1; j >= 0 && ioSpline->x[j] > x; --j )
+     53                  {
+     54                      ioSpline->x[j + 1] = ioSpline->x[j];
+     55                      ioSpline->y[j + 1] = ioSpline->y[j];
+     56                  }
+     57                  ioSpline->x[j + 1] = x;
+     58                  ioSpline->y[j + 1] = y;
+     59              }
+     60          
+     61              // For single point offset, apply delta across the range
+     62              if( 1 == ioSpline->numPts )
+     63              {
+     64              	ioSpline->b[0] = 0.0f;
+     65                  ioSpline->c[0] = 0.0f;
+     66                  ioSpline->d[0] = 0.0f;
+     67                  ioSpline->b[1] = 0.0f;
+     68                  ioSpline->c[1] = 0.0f;
+     69                  ioSpline->d[1] = 0.0f;
+     70              }
+     71          
+     72              // For 2 points set up a linear equation
+     73              else if( 2 == ioSpline->numPts )
+     74              {
+     75          		ioSpline->b[0] = 0.0f;
+     76          		if ((ioSpline->x[1] - ioSpline->x[0]) != 0.0)
+     77          		{
+     78          			ioSpline->b[0] = (ioSpline->y[1] - ioSpline->y[0]) / (ioSpline->x[1] - ioSpline->x[0]);
+     79          		}
+     80          
+     81          		ioSpline->c[0] = 0.0f;
+     82                  ioSpline->d[0] = 0.0f;
+     83                  ioSpline->b[1] = ioSpline->b[0];
+     84                  ioSpline->c[1] = 0.0f;
+     85                  ioSpline->d[1] = 0.0f;
+     86              }
+     87          
+     88              // 3 or more points
+     89              else if( 2 < ioSpline->numPts )
+     90              {
+     91                  // Set up for tridiagonal system where ioSpline->b = diagonal,
+     92                  //	ioSpline->d = off diagnonal, and ioSpline->c = right hand side.
+     93                  ioSpline->d[0] = ioSpline->x[1] - ioSpline->x[0];
+     94          		ioSpline->c[1] = 0.0;
+     95          		if (ioSpline->d[0] != 0.0)
+     96          		{
+     97                      ioSpline->c[1] = (ioSpline->y[1] - ioSpline->y[0])/ioSpline->d[0];
+     98          		}
+     99          
+    100                  for( i = 1; i < n; ++i )
+    101                  {
+    102          			ioSpline->c[i + 1] = 0.0;
+    103          			ioSpline->d[i] = ioSpline->x[i + 1] - ioSpline->x[i];
+    104                      ioSpline->b[i] = 2.0f * (ioSpline->d[i-1] + ioSpline->d[i]);
+    105          			if( ioSpline->d[i] != 0.0 )
+    106          			{
+    107          				ioSpline->c[i + 1] = (ioSpline->y[i + 1] - ioSpline->y[i]) / (ioSpline->d[i]);
+    108          			}
+    109                      ioSpline->c[i] = ioSpline->c[i+1] - ioSpline->c[i];
+    110                  }
+    111          
+    112                  // End Conditions -- third derivatives of ioSpline->x(0) and
+    113                  //	ioSpline->x(n) obtained from divided difference.
+    114                  ioSpline->b[0] = -ioSpline->d[0];
+    115                  ioSpline->b[n] = -ioSpline->d[n-1];
+    116                  ioSpline->c[0] = 0.0f;
+    117                  ioSpline->c[n] = 0.0f;
+    118          
+    119                  if( 3 < ioSpline->numPts )
+    120                  {
+    121          			if (((ioSpline->x[3] - ioSpline->x[1]) != 0.0) && ((ioSpline->x[2] - ioSpline->x[0]) != 0.0))
+    122          			{
+    123          				ioSpline->c[0] = ioSpline->c[2] / (ioSpline->x[3] - ioSpline->x[1])
+    124          							   - ioSpline->c[1] / (ioSpline->x[2] - ioSpline->x[0]);
+    125          			}
+    126          			else
+    127          			{
+    128          				ioSpline->c[0] = 0.0;
+    129          			}
+    130          
+    131          			if (((ioSpline->x[n] - ioSpline->x[n - 2]) != 0.0) && ((ioSpline->x[n - 1] - ioSpline->x[n - 3]) != 0.0))
+    132          			{
+    133          				ioSpline->c[n] = ioSpline->c[n - 1] / (ioSpline->x[n] - ioSpline->x[n - 2])
+    134          							   - ioSpline->c[n - 2] / (ioSpline->x[n - 1] - ioSpline->x[n - 3]);
+    135          			}
+    136          			else
+    137          			{
+    138          				ioSpline->c[n] = 0.0;
+    139          			}
+    140          
+    141          			if ((ioSpline->x[3] - ioSpline->x[0]) != 0.0)
+    142          			{
+    143          				ioSpline->c[0] = (ioSpline->c[0] * ioSpline->d[0] * ioSpline->d[0])
+    144          							   / (ioSpline->x[3] - ioSpline->x[0]);
+    145          			}
+    146          			else
+    147          			{
+    148          				ioSpline->c[0] = 0.0;
+    149          			}
+    150          
+    151          			if ((ioSpline->x[n] - ioSpline->x[n - 3]) != 0.0)
+    152          			{
+    153          				ioSpline->c[n] = (-ioSpline->c[n] * ioSpline->d[n - 1] * ioSpline->d[n - 1])
+    154          							   / (ioSpline->x[n] - ioSpline->x[n - 3]);
+    155          			}
+    156          			else
+    157          			{
+    158          				ioSpline->c[n] = 0.0;
+    159          			}
+    160                  }
+    161          
+    162                  // Forward elimination
+    163                  for( i = 1; i <= n; i++ )
+    164                  {
+    165          			temp_real = 0.0; 
+    166          			if( ioSpline->b[i - 1] != 0.0 )
+    167          			{
+    168          				temp_real = ioSpline->d[i - 1] / ioSpline->b[i - 1];
+    169          			}
+    170          
+    171          			ioSpline->b[i] = ioSpline->b[i] - temp_real * ioSpline->d[i-1];
+    172                      ioSpline->c[i] = ioSpline->c[i] - temp_real * ioSpline->c[i-1];
+    173                  }
+    174          
+    175                  // Back substitution
+    176          		ioSpline->c[n] = 0.0;
+    177          		if( ioSpline->b[n] != 0.0 )
+    178          		{
+    179          			ioSpline->c[n] = ioSpline->c[n] / ioSpline->b[n];
+    180          		}
+    181          
+    182                  for (i = (short int)(n - 1); i >= 0; i--)
+    183                  {
+    184          			ioSpline->c[i] = 0.0;
+    185          			if( ioSpline->b[i] != 0.0 )
+    186          			{
+    187          				ioSpline->c[i] = (ioSpline->c[i] - ioSpline->d[i] * ioSpline->c[i + 1]) / ioSpline->b[i];
+    188          			}
+    189                  }
+    190          
+    191                  // Compute coefficents
+    192          		ioSpline->b[n] = 0.0;
+    193          		if (ioSpline->d[n - 1] != 0.0)
+    194          		{
+    195          			ioSpline->b[n] = (ioSpline->y[n] - ioSpline->y[n - 1]) / ioSpline->d[n - 1]
+    196          						   + ioSpline->d[n - 1] * (ioSpline->c[n - 1] + 2.0f * ioSpline->c[n]);
+    197          		}
+    198          
+    199                  for( i = 0; i < n; i++ )
+    200                  {
+    201                      if (ioSpline->d[i] != 0.0)
+    202                      {
+    203                          ioSpline->b[i] = (ioSpline->y[i+1] - ioSpline->y[i]) / ioSpline->d[i]
+    204                                         - ioSpline->d[i] * (ioSpline->c[i+1] + 2.0f * ioSpline->c[i]);
+    205                          ioSpline->d[i] = (ioSpline->c[i+1] - ioSpline->c[i]) / ioSpline->d[i];
+    206                      }
+    207                      else
+    208                      {
+    209                          ioSpline->b[i] = 0.0;
+    210                          ioSpline->d[i] = 0.0;
+    211                      }
+    212                      ioSpline->c[i] = 3.0f * ioSpline->c[i];
+    213                  }
+    214          
+    215                  ioSpline->c[n] = 3.0f * ioSpline->c[n];
+    216                  ioSpline->d[n] = ioSpline->d[n-1];
+    217              }
+    218          }
+    219          
+    220          
+    221          /**
+    222           *  Calculate a spline
+    223           */
+    224          float Spline_Calc( Spline_t *inSpline, float inVal )
+    225          {
+    226              float       dx;         // X-axis interpolation distance
+    227              unsigned    i,j,k,n;
+    228              float       retVal;
+    229              
+    230              n = inSpline->numPts - 1;
+    231          
+    232              if( 1 == inSpline->numPts )
+    233          	{
+    234                  retVal = inSpline->y[0] ;
+    235          	}
+    236              else
+    237              {
+    238                  // Binary search
+    239                  i = 0;
+    240                  j = n + 1;
+    241                  while( 1 )
+    242                  {
+    243                      k = (i + j) / 2;
+    244          
+    245          			if (inVal < inSpline->x[k])
+    246          			{
+    247          				j = k;
+    248          			}
+    249          			else
+    250          			{
+    251          				i = k;
+    252          			}
+    253          			if (j == (i + 1))
+    254          			{
+    255          				break;
+    256          			}
+    257                  }
+    258          
+    259                  dx = inVal - inSpline->x[i];
+    260                  retVal = (inSpline->y[i]) + dx * (inSpline->b[i] + dx * (inSpline->c[i] + dx * inSpline->d[i]));
+    261              }
+    262              
+    263              return( retVal );
+    264          }
+    265          
+    266          
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      16   Spline_Calc
+         0   -> __aeabi_fadd
+        16   -> __aeabi_fadd
+        16   -> __aeabi_fmul
+        16   -> __aeabi_fsub
+        16 __aeabi_cfcmple
+      16   Spline_Create
+        16   -> calloc
+      48   Spline_Setup
+        48   -> __aeabi_fadd
+        48   -> __aeabi_fdiv
+        48   -> __aeabi_fmul
+        48   -> __aeabi_fsub
+        48   -> __aeabi_memcpy4
+        48 __aeabi_cfcmpeq
+        48 __aeabi_cfcmple
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable1
+       6  ?Subroutine0
+       6  ?Subroutine1
+      10  ?Subroutine2
+       8  ?Subroutine3
+       8  ?Subroutine4
+       8  ?Subroutine5
+     114  Spline_Calc
+      48  Spline_Create
+    1130  Spline_Setup
+
+ 
+ 1 342 bytes in section .text
+ 
+ 1 342 bytes of CODE memory
+
+Errors: none
+Warnings: none

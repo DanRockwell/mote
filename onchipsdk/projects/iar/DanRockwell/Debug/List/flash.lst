@@ -1,0 +1,349 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:47
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\flash.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWBF33.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\flash.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\flash.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\flash.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\flash.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to manage alarms.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_system.h"
+     19          #include "dn_fs.h"
+     20          #include "dn_api_param.h"
+     21          #include "dn_exe_hdr.h"
+     22          #include "dn_common.h"
+     23          #include "dn_system.h"
+     24          #include "dn_flash_drv.h"
+     25          #include "dn_flash_info.h"
+     26          
+     27          // App includes
+     28          #include "debug.h"
+     29          #include "flash.h"
+     30          
+     31          
+     32          /**
+     33          *	Initialize the alarm manager
+     34          */
+     35          void InitFlash( void )
+     36          {
+     37              DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Flash Interface\r\n" );
+     38          }
+     39          
+     40          
+     41          /**
+     42           *	Save configuration to FLASH
+     43           */
+     44          bool WriteConfigurationToFlash(unsigned char *data, unsigned length)
+     45          {
+     46          	dn_flash_par_id_t parId = DN_FLASH_PAR_USER1;
+     47          	dn_flash_par_t	  *par  = NULL;
+     48          	dn_error_t	  error;
+     49          	bool		  result = true;
+     50          
+     51          	error = dn_flash_open( parId, par );
+     52          	if( DN_ERR_NONE != error )
+     53          	{
+     54          		result = false;
+     55          		DbgPrint( DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to configuration\r\n" );
+     56          	}
+     57          	else
+     58          	{
+     59          		error = dn_flash_pageErase( *par, 0 );
+     60          		if (DN_ERR_NONE == error)
+     61          		{
+     62          			error = dn_flash_write( *par, 0, data, length );
+     63          			if (DN_ERR_NONE != error)
+     64          			{
+     65          				result = false;
+     66          				DbgPrint( DBG_LEVEL_ERROR, "ERROR. Failed to write configuration to FLASH\r\n" );
+     67          			}
+     68          		}
+     69          		else
+     70          		{
+     71          			result = false;
+     72          			DbgPrint( DBG_LEVEL_ERROR, "ERROR. Failed to erase configuration in FLASH\r\n" );
+     73          		}
+     74          	}
+     75          
+     76          	return( result );
+     77          }
+     78          
+     79          
+     80          /**
+     81           *	Recall configuration from FLASH
+     82           */
+     83          bool ReadConfigurationFromFlash(unsigned char *data, unsigned length)
+     84          {
+     85          	dn_flash_par_id_t 	parId = DN_FLASH_PAR_USER1;
+     86          	dn_flash_par_t		*par = NULL;
+     87          	dn_error_t			error;
+     88          	bool				result = true;
+     89          
+     90          	error = dn_flash_open( parId, par );
+     91          	if( DN_ERR_NONE != error )
+     92          	{
+     93          		result = false;
+     94          		DbgPrint( DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to configuration\r\n" );
+     95          	}
+     96          	else
+     97          	{
+     98          		error = dn_flash_read( *par, 0, data, length );
+     99          		if( DN_ERR_NONE != error )
+    100          		{
+    101          			result = false;
+    102          			DbgPrint( DBG_LEVEL_ERROR, "ERROR. Failed to read configuration from FLASH\r\n" );
+    103          		}
+    104          	}
+    105          
+    106          	return( result );
+    107          }
+    108          
+    109          
+    110          bool WriteCalibrationToFlash(unsigned char *data, unsigned length)
+    111          {
+    112          	dn_flash_par_id_t 	parId = DN_FLASH_PAR_USER2;
+    113          	dn_flash_par_t		*par = NULL;
+    114          	dn_error_t		error;
+    115          	bool			result = true;
+    116          
+    117          	error = dn_flash_open( parId,  par );
+    118          	if (DN_ERR_NONE != error)
+    119          	{
+    120          		result = false;
+    121          		DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to calibration\r\n");
+    122          	}
+    123          	else
+    124          	{
+    125          		error = dn_flash_pageErase( *par, 0 );
+    126          		if (DN_ERR_NONE == error)
+    127          		{
+    128          			error = dn_flash_write( *par, 0, data, length );
+    129          			if (DN_ERR_NONE != error)
+    130          			{
+    131          				result = false;
+    132          				DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to write calibration to FLASH\r\n");
+    133          			}
+    134          		}
+    135          		else
+    136          		{
+    137          			result = false;
+    138          			DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to erase calibration in FLASH\r\n");
+    139          		}
+    140          	}
+    141          
+    142          	return(result);
+    143          }
+    144          
+    145          bool ReadCalibrationFromFlash(unsigned char *data, unsigned length)
+    146          {
+    147          	dn_flash_par_id_t 	parId = DN_FLASH_PAR_USER2;
+    148          	dn_flash_par_t		*par = NULL;
+    149          	dn_error_t			error;
+    150          	bool				result = true;
+    151          
+    152          	error = dn_flash_open( parId,  par );
+    153          	if (DN_ERR_NONE != error)
+    154          	{
+    155          		result = false;
+    156          		DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to calibration\r\n");
+    157          	}
+    158          	else
+    159          	{
+    160          		error = dn_flash_read( *par, 0, data, length );
+    161          		if (DN_ERR_NONE != error)
+    162          		{
+    163          			result = false;
+    164          			DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to read calibration from FLASH\r\n");
+    165          		}
+    166          	}
+    167          
+    168          	return(result);
+    169          }
+    170          
+    171          
+    172          bool WriteSerialNumberToFlash(unsigned char *data, unsigned length)
+    173          {
+    174          	dn_flash_par_id_t 	parId = DN_FLASH_PAR_USER3;
+    175          	dn_flash_par_t		*par = NULL;
+    176          	dn_error_t			error;
+    177          	bool				result = true;
+    178          
+    179          	error = dn_flash_open( parId,  par );
+    180          	if (DN_ERR_NONE != error)
+    181          	{
+    182          		result = false;
+    183          		DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to serial number\r\n");
+    184          	}
+    185          	else
+    186          	{
+    187          		error = dn_flash_pageErase( *par, 0 );
+    188          		if (DN_ERR_NONE == error)
+    189          		{
+    190          			error = dn_flash_write( *par, 0, data, length );
+    191          			if (DN_ERR_NONE != error)
+    192          			{
+    193          				result = false;
+    194          				DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to write serial number to FLASH\r\n");
+    195          			}
+    196          		}
+    197          		else
+    198          		{
+    199          			result = false;
+    200          			DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to erase serial number in FLASH\r\n");
+    201          		}
+    202          	}
+    203          
+    204          	return(result);
+    205          }
+    206          
+    207          
+    208          bool ReadSerialNumberFromFlash(unsigned char *data, unsigned length)
+    209          {
+    210          	dn_flash_par_id_t 	parId = DN_FLASH_PAR_USER3;
+    211          	dn_flash_par_t		*par = NULL;
+    212          	dn_error_t			error;
+    213          	bool				result = true;
+    214          
+    215          	error = dn_flash_open( parId,  par );
+    216          	if (DN_ERR_NONE != error)
+    217          	{
+    218          		result = false;
+    219          		DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to open FLASH access to serial number\r\n");
+    220          	}
+    221          	else
+    222          	{
+    223          		error = dn_flash_read( *par, 0, data, length );
+    224          		if (DN_ERR_NONE != error)
+    225          		{
+    226          			result = false;
+    227          			DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to read serial number from FLASH\r\n");
+    228          		}
+    229          	}
+    230          
+    231          	return(result);
+    232          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       0   InitFlash
+         0   -> DbgPrint
+      16   ReadCalibrationFromFlash
+        16   -> DbgPrint
+        16   -> dn_flash_open
+        16   -> dn_flash_read
+      16   ReadConfigurationFromFlash
+        16   -> DbgPrint
+        16   -> dn_flash_open
+        16   -> dn_flash_read
+      16   ReadSerialNumberFromFlash
+        16   -> DbgPrint
+        16   -> dn_flash_open
+        16   -> dn_flash_read
+      24   WriteCalibrationToFlash
+        24   -> DbgPrint
+        24   -> dn_flash_open
+        24   -> dn_flash_pageErase
+        24   -> dn_flash_write
+      24   WriteConfigurationToFlash
+        24   -> DbgPrint
+        24   -> dn_flash_open
+        24   -> dn_flash_pageErase
+        24   -> dn_flash_write
+      24   WriteSerialNumberToFlash
+        24   -> DbgPrint
+        24   -> dn_flash_open
+        24   -> dn_flash_pageErase
+        24   -> dn_flash_write
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+      12  ?Subroutine0
+      10  ?Subroutine1
+      12  ?Subroutine2
+      12  ?Subroutine3
+      12  ?Subroutine4
+      12  ?Subroutine5
+       6  ?Subroutine6
+      40  ?_0
+      56  ?_1
+      48  ?_10
+      48  ?_11
+      52  ?_12
+      48  ?_2
+      48  ?_3
+      52  ?_4
+      52  ?_5
+      48  ?_6
+      48  ?_7
+      48  ?_8
+      56  ?_9
+      10  InitFlash
+      38  ReadCalibrationFromFlash
+      38  ReadConfigurationFromFlash
+      38  ReadSerialNumberFromFlash
+      52  WriteCalibrationToFlash
+      52  WriteConfigurationToFlash
+      52  WriteSerialNumberToFlash
+
+ 
+ 1 000 bytes in section .text
+ 
+ 1 000 bytes of CODE memory
+
+Errors: none
+Warnings: none

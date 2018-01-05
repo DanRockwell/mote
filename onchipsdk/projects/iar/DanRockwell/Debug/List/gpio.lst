@@ -1,0 +1,339 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\gpio.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC02E.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\gpio.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\gpio.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\gpio.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\gpio.c
+      1          /******************************************************************************
+      2          *       
+      3          *       Copyright (c) 2017, Mack Informatcion Systems, In.  All rights reserved.
+      4          *
+      5          *	Application used to manage alarms.
+      6          *
+      7          *	Author: Dan Rockwell
+      8          */
+      9          
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_common.h"
+     19          #include "cli_task.h"
+     20          #include "loc_task.h"
+     21          #include "dn_gpio.h"
+     22          #include "dn_system.h"
+     23          #include "dn_exe_hdr.h"
+     24          
+     25          // App includes
+     26          #include "gpio.h"
+     27          #include "debug.h"
+     28          #include "radio.h"
+     29          
+     30          
+     31          //=========================== defines and enums ===============================
+     32          
+     33          #define TASK_APP_DIGITALIO_STK_SIZE	256
+     34          #define TASK_APP_DIGITALIO_PRIORITY	53
+     35          #define TASK_APP_DIGITALIO_NAME		"TASK_DIGITALIO"
+     36          
+     37          typedef struct
+     38          {
+     39          	OS_STK          gpioTaskStack[TASK_APP_DIGITALIO_STK_SIZE];
+     40          	OS_EVENT*       gpioSemaphore;
+     41          } TaskParams_t;
+     42          
+     43          
+     44          //=========================== module parameters ===============================
+     45          
+     46          static TaskParams_t	mAppVars;
+     47          static unsigned char mEvent1 = 0;
+     48          static unsigned char mEvent2 = 0;
+     49          static unsigned char mRelayState = 0;
+     50          
+     51          
+     52          //=========================== prototypes ======================================
+     53          
+     54          static void ConfigureDigitialIO(void);
+     55          static void ReadGPIOTask(void *unused);
+     56          
+     57          
+     58          //=========================== initialization ==================================
+     59          
+     60          void InitGPIO( void )
+     61          {
+     62              DbgPrint(DBG_LEVEL_INFO, "STATUS. GPIO Initializing\r\n");
+     63          
+     64              ConfigureDigitialIO();
+     65          
+     66              // Create semaphore for task control
+     67              mAppVars.gpioSemaphore = OSSemCreate(1);
+     68            
+     69              // Create reader task
+     70              DbgPrint(DBG_LEVEL_INFO, "STATUS. Digital-IO Creating Task\r\n");
+     71              unsigned char osErr = OSTaskCreateExt(ReadGPIOTask,
+     72          					(void *)0,
+     73          					(OS_STK *)(&mAppVars.gpioTaskStack[TASK_APP_DIGITALIO_STK_SIZE - 1]),
+     74          					TASK_APP_DIGITALIO_PRIORITY,
+     75          					TASK_APP_DIGITALIO_PRIORITY,
+     76          					(OS_STK *)mAppVars.gpioTaskStack,
+     77          					TASK_APP_DIGITALIO_STK_SIZE,
+     78          					(void *)0,
+     79          					OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR );
+     80          
+     81              OSTaskNameSet( TASK_APP_DIGITALIO_PRIORITY,
+     82                            (unsigned char *)TASK_APP_DIGITALIO_NAME,
+     83                            &osErr );
+     84          }
+     85          
+     86          
+     87          static void ReadGPIOTask(void *unused)
+     88          {
+     89          	unsigned char	event1[3];
+     90          	unsigned char	event2[3];
+     91          	unsigned char	sum1 = 0;
+     92          	unsigned char	sum2 = 0;
+     93          	bool			stateChanged = false;
+     94          
+     95          	// Look for state changes after debouncing for 300ms
+     96          	while (1)
+     97          	{
+     98           		for (int i = 0; i < 3; i++)
+     99          		{
+    100          			event1[i] = GpioRead(PIN_EVENT1_IN);
+    101          			event2[i] = GpioRead(PIN_EVENT2_IN);
+    102          			OSTimeDly(100);
+    103          			sum1 += event1[i];
+    104          			sum2 += event2[i];
+    105          		}
+    106          
+    107          		// Look for state change on event1
+    108          		if( ((3 == sum1) && (0 == mEvent1))
+    109          		 || ((0 == sum1) && (1 == mEvent1)) )
+    110          		{
+    111          			mEvent1 = (0 == sum1) ? 0 : 1;
+    112          			stateChanged = true;
+    113          		}
+    114          
+    115          		// Look for state change on event2
+    116          		if (((3 == sum2) && (0 == mEvent2))
+    117          			|| ((0 == sum2) && (1 == mEvent2)))
+    118          		{
+    119          			mEvent2 = (0 == sum2) ? 0 : 1;
+    120          			stateChanged = true;
+    121          		}
+    122          
+    123          		if (true == stateChanged)
+    124          		{
+    125          			stateChanged = false;
+    126          			SendDigitalIOReport( mEvent1, mEvent2, mRelayState );
+    127          		}
+    128          	}
+    129          }
+    130          
+    131          
+    132          void GpioConfigPin( dn_device_t pin, unsigned char mode, unsigned char config )
+    133          {
+    134          	dn_gpio_ioctl_cfg_in_t    gpioInCfg;
+    135          	dn_gpio_ioctl_cfg_out_t   gpioOutCfg;
+    136          
+    137          	// open the GPIO
+    138          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Configuring GPIO pin: %d\r\n", pin );
+    139          
+    140          	dn_open( pin, NULL, 0 );
+    141          
+    142          	// set the mode
+    143          	switch( mode )
+    144          	{
+    145          		case DN_IOCTL_GPIO_CFG_INPUT:
+    146          			// config is pullMode
+    147          			DbgPrint(DBG_LEVEL_INFO, "STATUS. GPIO input pin: %d, pull-up: %d\r\n", pin, config );
+    148          			gpioInCfg.pullMode = config;
+    149          			dn_ioctl( pin,
+    150                                            DN_IOCTL_GPIO_CFG_INPUT,
+    151          				  &gpioInCfg,
+    152          				  sizeof(gpioInCfg) );
+    153          			break;
+    154          
+    155          		case DN_IOCTL_GPIO_CFG_OUTPUT:
+    156          			// config is initialLevel      
+    157          			DbgPrint(DBG_LEVEL_INFO, "STATUS. GPIO output pin: %d, initial state: %d\r\n", pin, config);
+    158          			gpioOutCfg.initialLevel = config;
+    159          			dn_ioctl( pin,
+    160          				  DN_IOCTL_GPIO_CFG_OUTPUT,
+    161          				  &gpioOutCfg,
+    162          				  sizeof(gpioOutCfg) );
+    163          			break;
+    164          
+    165          		default:
+    166          			DbgPrint(DBG_LEVEL_INFO, "ERROR. GPIO invalid pin mode\r\n" );
+    167          	}
+    168          }
+    169          
+    170          
+    171          void GpioWrite( dn_device_t pin, const unsigned char value )
+    172          {
+    173             dn_write( pin,                      // device
+    174                       (const char *)&value,     // buf
+    175                       sizeof(value) );	       // len
+    176          }
+    177          
+    178          
+    179          unsigned char GpioRead( dn_device_t pin )
+    180          {
+    181              unsigned char   returnVal;
+    182          
+    183              dn_read( pin,		        // device
+    184                       (char *)&returnVal,        // buf
+    185                       sizeof(returnVal) );	// len
+    186           
+    187              return( returnVal );
+    188          }
+    189          
+    190          
+    191          static void ConfigureDigitialIO( void )
+    192          {
+    193          	mEvent1 = 0;
+    194          	mEvent2 = 0;
+    195          	mRelayState = 0;
+    196          
+    197          	GpioConfigPin(PIN_EVENT1_IN, DN_IOCTL_GPIO_CFG_INPUT, PIN_HIGH);
+    198          	GpioConfigPin(PIN_EVENT2_IN, DN_IOCTL_GPIO_CFG_INPUT, PIN_HIGH);
+    199          
+    200          	GpioConfigPin(PIN_RELAY_SET, DN_IOCTL_GPIO_CFG_OUTPUT, PIN_LOW);
+    201          	GpioConfigPin(PIN_RELAY_RESET, DN_IOCTL_GPIO_CFG_OUTPUT, PIN_LOW);
+    202          }
+    203          
+    204          
+    205          void  SetAlarmOut(void)
+    206          {
+    207          	mRelayState = 1;
+    208          	GpioWrite(PIN_RELAY_SET, PIN_HIGH);
+    209          	OSTimeDly(100);
+    210          	GpioWrite(PIN_RELAY_SET, PIN_LOW);
+    211          }
+    212          
+    213          
+    214          void  ClearAlarmOut(void)
+    215          {
+    216          	mRelayState = 0;
+    217          	GpioWrite(PIN_RELAY_RESET, PIN_HIGH);
+    218          	OSTimeDly(100);
+    219          	GpioWrite(PIN_RELAY_RESET, PIN_LOW);
+    220          }
+    221          
+    222          
+    223          void  GetEventData(unsigned char *event1, unsigned char *event2, unsigned char *relayState)
+    224          {
+    225          	*event1		= mEvent1;
+    226          	*event2		= mEvent2;
+    227          	*relayState = mRelayState;
+    228          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       8   ClearAlarmOut
+         0   -> GpioWrite
+         8   -> GpioWrite
+         8   -> OSTimeDly
+       8   GetEventData
+      24   GpioConfigPin
+        24   -> DbgPrint
+        24   -> dn_ioctl
+        24   -> dn_open
+       8   GpioRead
+         8   -> dn_read
+       8   GpioWrite
+         8   -> dn_write
+      32   InitGPIO
+        32   -> DbgPrint
+        32   -> GpioConfigPin
+        32   -> OSSemCreate
+        32   -> OSTaskCreateExt
+        32   -> OSTaskNameSet
+      40   ReadGPIOTask
+        40   -> GpioRead
+        40   -> OSTimeDly
+        40   -> SendDigitalIOReport
+       8   SetAlarmOut
+         0   -> GpioWrite
+         8   -> GpioWrite
+         8   -> OSTimeDly
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable11
+       4  ??DataTable11_1
+      28  ?_0
+      36  ?_1
+      16  ?_2
+      36  ?_3
+      44  ?_4
+      52  ?_5
+      32  ?_6
+      32  ClearAlarmOut
+      18  GetEventData
+     106  GpioConfigPin
+      16  GpioRead
+      12  GpioWrite
+     140  InitGPIO
+     148  ReadGPIOTask
+      32  SetAlarmOut
+    1028  mAppVars
+       3  mEvent1
+          mEvent2
+          mRelayState
+
+ 
+ 1 031 bytes in section .bss
+   756 bytes in section .text
+ 
+   756 bytes of CODE memory
+ 1 031 bytes of DATA memory
+
+Errors: none
+Warnings: none

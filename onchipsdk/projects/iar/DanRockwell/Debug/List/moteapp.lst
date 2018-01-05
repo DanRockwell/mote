@@ -1,0 +1,317 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\moteapp.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC225.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\moteapp.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\moteapp.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\moteapp.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\moteapp.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2017, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Main mote application control loop
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_system.h"
+     19          #include "dn_fs.h"
+     20          #include "dn_api_param.h"
+     21          #include "dn_exe_hdr.h"
+     22          #include "dn_common.h"
+     23          #include "dn_system.h"
+     24          
+     25          // App includes
+     26          #include "debug.h"
+     27          #include "ltc2984.h"
+     28          #include "alarm.h"
+     29          #include "battery.h"
+     30          #include "moteapp.h"
+     31          #include "report.h"
+     32          
+     33          
+     34          //=========================== defines and enums ===============================
+     35          #define TASK_APP_MOTE_STK_SIZE	512
+     36          #define TASK_APP_MOTE_PRIORITY	53
+     37          #define TASK_APP_MOTE_NAME	"TASK_MOTE_TIC"
+     38          
+     39          
+     40          //=========================== structs  ========================================
+     41          
+     42          typedef struct
+     43          {
+     44              OS_STK      moteTaskStack[TASK_APP_MOTE_STK_SIZE];
+     45              OS_EVENT*	moteSemaphore;
+     46          } MoteTaskParams_t;
+     47          
+     48          
+     49          //=========================== module parameters ======================================
+     50          
+     51          static MoteTaskParams_t	mAppVars;
+     52          static OS_EVENT		*mDataLock;
+     53          static const int	kReportTimerCount = (OS_TICKS_PER_SEC * 60 * 10);	// 60 sec * 10 = 10 minutes
+     54          static int		mTenMinuteTimer   = (OS_TICKS_PER_SEC * 60 * 10);
+     55          static bool		mReadingAvailable = false;
+     56          
+     57          
+     58          //=========================== prototypes ======================================
+     59          
+     60          static void RunMoteTimerTask(void *unused);
+     61          static void LockData(void);
+     62          static void UnlockData(void);
+     63          static void ClearReadingAvailable(void);
+     64          static bool IsReadingAvailable(void);
+     65          
+     66          
+     67          /**
+     68           *	Process:
+     69           *	1. ADC reading is taken every 30 seconds
+     70           *	2. Temperatures are transmitted every 10 minutes
+     71           *	3. If an alarm is active, temperatures are transmitted every 1 minute
+     72           *	4. If delta-T between readings exceeds 0.25C, temperature is transmitted every 1 minute
+     73           */
+     74          void RunMoteApp(void)
+     75          {
+     76              DbgPrint(DBG_LEVEL_INFO, "STATUS. Mote Control App\r\n");
+     77          
+     78              // Create semaphore for task control
+     79              mAppVars.moteSemaphore = OSSemCreate(1);
+     80          
+     81              // Create shared data lock
+     82              mDataLock = OSSemCreate(1);
+     83          
+     84              // Create reader task
+     85              DbgPrint(DBG_LEVEL_INFO, "STATUS. Mote Timer Task\r\n");
+     86              unsigned char osErr = OSTaskCreateExt(  RunMoteTimerTask,
+     87                                                      (void *)0,
+     88                                                      (OS_STK *)(&mAppVars.moteTaskStack[TASK_APP_MOTE_STK_SIZE - 1]),
+     89                                                      TASK_APP_MOTE_PRIORITY,
+     90                                                      TASK_APP_MOTE_PRIORITY,
+     91                                                      (OS_STK *)mAppVars.moteTaskStack,
+     92                                                      TASK_APP_MOTE_STK_SIZE,
+     93                                                      (void *)0,
+     94                                                      OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR );
+     95          
+     96              OSTaskNameSet( TASK_APP_MOTE_PRIORITY,
+     97                            (unsigned char *)TASK_APP_MOTE_NAME,
+     98                            &osErr );
+     99          }
+    100          
+    101          
+    102          /**
+    103           *	Take that fires semaphore every 30 seconds to read adc
+    104           */
+    105          static void RunMoteTimerTask(void *unused)
+    106          {
+    107              static int dataSendPhase = 1;
+    108          
+    109              while( 1 )
+    110              {
+    111          	// Sleep for 30seconds
+    112          	OSTimeDly( OS_TICKS_PER_SEC * 30 );
+    113          
+    114          	// Trigger new reading (it takes about 3 seconds)
+    115          	ClearReadingAvailable();
+    116          	AcquireTemperatureReadings();
+    117          
+    118          	// Wait for up to 7 seconds for readings to complete
+    119          	int maxAdcTimeOut = 7;
+    120          	while (!IsReadingAvailable() )
+    121          	{
+    122                      OSTimeDly( OS_TICKS_PER_SEC );
+    123                    
+    124                      if( 0 >= maxAdcTimeOut-- )
+    125                      {           
+    126                          OSTimeDly( OS_TICKS_PER_SEC );
+    127          		DbgPrint(DBG_LEVEL_ERROR, "ERROR. Failed to read ADC\r\n");
+    128                          SendAlarm(0, kAlarmId_ReadFailed, 0 );
+    129                      }
+    130                  }
+    131          
+    132                  // Check for any alarm or delta-T exceeding 0.25C
+    133          	RunAlarmManager();
+    134          
+    135          	// Data is read every 30 seconds and sent at 60 seconds on alarm
+    136          	dataSendPhase++;
+    137          	if( 1 < dataSendPhase ) dataSendPhase = 0;
+    138          
+    139          	// Check for alarm
+    140          	if( IsAlarmActive() )
+    141          	{
+    142                      if( 0 == dataSendPhase )
+    143                      {
+    144          		// Send temperature and alarms for all channels
+    145          		RunReportManager();
+    146          		// Reset 10 minute temperature post tiemr
+    147          		mTenMinuteTimer = kReportTimerCount;
+    148                      }
+    149          	}
+    150          	else if( IsDeltaTThresholdReached() )
+    151          	{
+    152                      if( 0 == dataSendPhase )
+    153                      {
+    154                          // Send temperature and alarms for all channels
+    155          		RunReportManager();
+    156          		// Reset 10 minute temperature post tiemr
+    157          		mTenMinuteTimer = kReportTimerCount;
+    158                      }
+    159          	}
+    160          	else
+    161          	{
+    162                      if( 0 >= mTenMinuteTimer-- )
+    163                      {
+    164                          mTenMinuteTimer = kReportTimerCount;
+    165          		RunReportManager();
+    166          		CheckBatteryHealth();
+    167                      }
+    168                  }
+    169              }
+    170          }
+    171          
+    172          
+    173          /**
+    174           *  Function called when LTC2984 completes conversions
+    175           */
+    176          void TemperatureReadingsAvailable( void )
+    177          {
+    178              LockData();
+    179              mReadingAvailable = true;
+    180              UnlockData();
+    181          }
+    182          
+    183          
+    184          static void ClearReadingAvailable( void )
+    185          {
+    186              LockData();
+    187              mReadingAvailable = false;
+    188              UnlockData();
+    189          }
+    190          
+    191          
+    192          static bool IsReadingAvailable( void )
+    193          {
+    194              LockData();
+    195              bool available = mReadingAvailable;
+    196              UnlockData();
+    197              return( available );
+    198          }
+    199          
+    200          
+    201          static void LockData( void )
+    202          {
+    203              unsigned char osErr;
+    204              OSSemPend( mDataLock, 0, &osErr );
+    205          }
+    206          
+    207          
+    208          static void UnlockData( void )
+    209          {
+    210              OSSemPost( mDataLock );
+    211          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       8   LockData
+         8   -> OSSemPend
+      32   RunMoteApp
+        32   -> DbgPrint
+        32   -> OSSemCreate
+        32   -> OSTaskCreateExt
+        32   -> OSTaskNameSet
+      32   RunMoteTimerTask
+        32   -> AcquireTemperatureReadings
+        32   -> CheckBatteryHealth
+        32   -> DbgPrint
+        32   -> IsAlarmActive
+        32   -> IsDeltaTThresholdReached
+        32   -> LockData
+        32   -> OSTimeDly
+        32   -> RunAlarmManager
+        32   -> RunReportManager
+        32   -> SendAlarm
+        32   -> UnlockData
+       8   TemperatureReadingsAvailable
+         8   -> LockData
+         0   -> UnlockData
+       0   UnlockData
+         0   -> OSSemPost
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable8
+       4  ??DataTable8_1
+       4  ??DataTable8_2
+       4  ??DataTable8_3
+      28  ?_0
+      28  ?_1
+      16  ?_2
+      28  ?_3
+      16  LockData
+     100  RunMoteApp
+     164  RunMoteTimerTask
+      18  TemperatureReadingsAvailable
+       8  UnlockData
+    2052  mAppVars
+       4  mDataLock
+      12  mReadingAvailable
+          mTenMinuteTimer
+          dataSendPhase
+
+ 
+ 2 056 bytes in section .bss
+    12 bytes in section .data
+   422 bytes in section .text
+ 
+   422 bytes of CODE memory
+ 2 068 bytes of DATA memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,457 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:49
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spi.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC507.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spi.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\spi.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\spi.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\spi.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	SPI interface control
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_common.h"
+     19          #include "dn_system.h"
+     20          #include "dn_gpio.h"
+     21          #include "dn_spi.h"
+     22          #include "dn_system.h"
+     23          
+     24          // App includes
+     25          #include "debug.h"
+     26          #include "spi.h"
+     27          #include "gpio.h"
+     28          #include "ltc2984.h"
+     29          
+     30          
+     31          //=========================== definitions =====================================
+     32          
+     33          #define CHANNEL_DATA_SIZE	4
+     34          #define NUMBER_OF_CHANNELS	9
+     35          #define SPI_TX_BUFFER_LENGTH	1
+     36          #define SPI_RX_BUFFER_LENGTH	4
+     37          
+     38          
+     39          //=========================== variables =======================================
+     40          
+     41          static dn_spi_open_args_t	mSpiOpenArgs;
+     42          static dn_ioctl_spi_transfer_t	mSpiTransfer;
+     43          
+     44          // Each SPI transaction is required to write into RX buffer on a word boundary,
+     45          // so force word alignment is needed for the start address of the rx buffer
+     46          #pragma data_alignment = 4
+     47          unsigned char mSpiRxBuffer[SPI_RX_BUFFER_LENGTH];
+     48          unsigned char mSpiTxBuffer[SPI_TX_BUFFER_LENGTH];
+     49          
+     50          
+     51          //=========================== local functions =======================================
+     52          
+     53          static void             InitializeMemoryWrite( short startAddress );
+     54          static void             WriteCoefficient( long coeff );
+     55          static void	        ConfigureChipSelect( void );
+     56          static void             SpiWrite( unsigned char dataByte );
+     57          static unsigned char    SpiRead( void );
+     58          static void             AssertChipSelect( void );
+     59          static void             DeassertChipSelect( void );
+     60          static void             InitializeMemoryRead( short startAddress );
+     61          static void             GetRawResults( short baseAddress, int channelNumber, unsigned char results[4] );
+     62          static float            ConvertToSignedFloat( unsigned char results[4] );
+     63          static float            GetTemperature( float value );
+     64          static unsigned char    HighByte( short data );
+     65          static char             LowByte( short data );
+     66          
+     67          
+     68          //*****************************************************************************
+     69          //						SPI Initialization
+     70          //*****************************************************************************
+     71          
+     72          /**
+     73           *  SPI interface initialization.
+     74           */
+     75          void InitSPI( void )
+     76          {
+     77              // Initialize chip select pin, which is controlled manually
+     78              ConfigureChipSelect();
+     79          
+     80              // Initialize SPI, open the SPI device
+     81              mSpiOpenArgs.maxTransactionLenForCPHA_1 = 0;
+     82              int err = dn_open( DN_SPI_DEV_ID, 
+     83                                 &mSpiOpenArgs,
+     84                                 sizeof(mSpiOpenArgs) );
+     85                
+     86              // Initialize spi communication parameters
+     87              mSpiTransfer.txData		= &mSpiTxBuffer[0];
+     88              mSpiTransfer.rxData		= &mSpiRxBuffer[0];
+     89              mSpiTransfer.transactionLen = SPI_TX_BUFFER_LENGTH;
+     90              mSpiTransfer.numSamples	= 1;
+     91              mSpiTransfer.startDelay	= 0;
+     92              mSpiTransfer.clockPolarity	= DN_SPI_CPOL_0;
+     93              mSpiTransfer.clockPhase	= DN_SPI_CPHA_0;
+     94              mSpiTransfer.bitOrder	= DN_SPI_MSB_FIRST;
+     95              mSpiTransfer.slaveSelect	= DN_SPIM_SS_0n;
+     96              mSpiTransfer.clockDivider	= DN_SPI_CLKDIV_16;
+     97              mSpiTransfer.rxBufferLen	= SPI_RX_BUFFER_LENGTH;
+     98          }
+     99          
+    100          
+    101          //*****************************************************************************
+    102          //      Memory read functions
+    103          //*****************************************************************************
+    104          
+    105          /**
+    106           *  Write configuration data for selected channel
+    107           */
+    108          void AssignChannel( int channelNumber, long channelAssignmentData )
+    109          {
+    110              short startAddress = CHANNEL_ASSIGNMENT_BASE + (4 * channelNumber);
+    111          
+    112              InitializeMemoryWrite( startAddress );
+    113              WriteCoefficient( channelAssignmentData );
+    114              DeassertChipSelect();
+    115          }
+    116          
+    117          
+    118          /**
+    119           *  Write single byte to selected address
+    120           */
+    121          void WriteSingleByte( short startAddress, unsigned char singleByte )
+    122          {
+    123              InitializeMemoryWrite( startAddress );
+    124              SpiWrite( singleByte );
+    125              DeassertChipSelect();
+    126          }
+    127          
+    128          
+    129          /**
+    130           *	Start a write operation by asserting chip select and writting address
+    131           */
+    132          static void InitializeMemoryWrite( short startAddress )
+    133          {
+    134              AssertChipSelect();			// Lower chip select line
+    135              SpiWrite( 0x02 );			// Instruction Byte Write
+    136              SpiWrite( HighByte(startAddress) );	// Address MSB Byte
+    137              SpiWrite( LowByte(startAddress) );	// Address LSB Byte
+    138          }
+    139          
+    140          
+    141          /**
+    142           *  Support function to write multiple bytes to device
+    143           */
+    144          static void WriteCoefficient( long coeff )
+    145          {
+    146              int bytesPerCoeff = 4;
+    147              unsigned char dataByte;
+    148              int i;
+    149              for( i = bytesPerCoeff - 1; i >= 0; i-- )
+    150              {
+    151          	dataByte = (unsigned char)(coeff >> (i * 8));
+    152          	SpiWrite( dataByte );
+    153              }
+    154          }
+    155          
+    156          
+    157          //*****************************************************************************
+    158          //      Memory read functions
+    159          //*****************************************************************************
+    160          
+    161          /**
+    162          *  Read status register and return conversion status
+    163          */
+    164          bool ConversionDone( void )
+    165          {
+    166              InitializeMemoryRead( 0 );
+    167              unsigned char data = SpiRead();
+    168              DeassertChipSelect();
+    169              return( data & 0x40 );
+    170          }
+    171          
+    172          
+    173          /**
+    174           *  Assert chip select, write command and address for read	
+    175           */
+    176          static void InitializeMemoryRead( short startAddress )
+    177          {
+    178              AssertChipSelect();			// Lower chip select line
+    179              SpiWrite( 0x03 );			// instruction Byte read
+    180              SpiWrite( HighByte(startAddress) );	// Address MSB Byte
+    181              SpiWrite( LowByte(startAddress) );	// Address LSB Byte
+    182          }
+    183          
+    184          
+    185          /**
+    186           *  Read temperature results in SI units along with convesion status
+    187           */
+    188          void ReadTemperatureResult( int channelNumber, AdcReading_t *data )
+    189          {
+    190              unsigned char results[4];
+    191              GetRawResults( READ_CHANNEL_BASE, channelNumber, results );
+    192              float signedFloat = ConvertToSignedFloat( results );
+    193              data->temperature = GetTemperature( signedFloat );
+    194              data->status      = results[3];
+    195          }
+    196          
+    197          /**
+    198           *  Read 4 byte conversion result for selected channel
+    199           */
+    200          static void GetRawResults( short baseAddress, int channelNumber, unsigned char results[4] )
+    201          {
+    202              short address = baseAddress + (4 * channelNumber);
+    203              InitializeMemoryRead( address );
+    204          
+    205              results[3] = SpiRead();     // fault data
+    206              results[2] = SpiRead();     // MSB result byte
+    207              results[1] = SpiRead();     // 2nd result byte
+    208              results[0] = SpiRead();     // LSB result byte
+    209              DeassertChipSelect();
+    210          }
+    211          
+    212          
+    213          /**
+    214           *  Get the last 24 bits of the results (the first 8 bits are status bits)
+    215           */
+    216          static float ConvertToSignedFloat( unsigned char results[4] )
+    217          {
+    218              long value = 0L;
+    219              value = value 
+    220                    | ((unsigned long)results[2] << 16)
+    221                    | ((unsigned long)results[1] << 8)
+    222          	  | ((unsigned long)results[0]);
+    223          
+    224              // Convert a 24-bit two's complement number into a 32-bit two's complement number
+    225              if( (results[2] & 0x80) == 128 )
+    226              {
+    227                  // Convert to negative
+    228          	value = value | 0xFF000000;
+    229              }
+    230          
+    231              return( (float)value );
+    232          }
+    233          
+    234          
+    235          /**
+    236           *  The temperature format is (14, 10) so we divide by 2^10
+    237           */
+    238          static float GetTemperature( float value )
+    239          {
+    240              return( value / 1024 );
+    241          }
+    242          
+    243          
+    244          // Translate the fault byte into usable fault data and print it out
+    245          void PrintFaultData( unsigned char faultByte )
+    246          {
+    247              if ((faultByte & SENSOR_HARD_FAILURE) > 0)	DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: SENSOR HARD FALURE\r\n");
+    248              if ((faultByte & ADC_HARD_FAILURE) > 0)	DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: ADC_HARD_FAILURE\r\n");
+    249              if ((faultByte & CJ_HARD_FAILURE) > 0)	DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: CJ_HARD_FAILURE\r\n");
+    250              if ((faultByte & CJ_SOFT_FAILURE) > 0)	DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: CJ_SOFT_FAILURE\r\n");
+    251              if ((faultByte & SENSOR_ABOVE) > 0)		DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: SENSOR_ABOVE\r\n");
+    252              if ((faultByte & SENSOR_BELOW) > 0)		DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: SENSOR_BELOW\r\n");
+    253              if ((faultByte & ADC_RANGE_ERROR) > 0)	DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: ADC RANGE ERROR\r\n");
+    254              if ((faultByte & VALID) != 1)		DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: INVALID READING\r\n");
+    255              if (faultByte == 0xff)			DbgPrint(DBG_LEVEL_ERROR, "ERROR. LTC2984: CONFIGURATION ERROR\r\n");
+    256          }
+    257          
+    258          
+    259          /**
+    260           *  Write bytes to SPI interface
+    261           */
+    262          static void SpiWrite( unsigned char dataByte )
+    263          {
+    264              mSpiTxBuffer[0] = dataByte;
+    265              dn_ioctl( DN_SPI_DEV_ID,
+    266                        DN_IOCTL_SPI_TRANSFER,
+    267                        &mSpiTransfer,
+    268                        sizeof(mSpiTransfer) );
+    269          }
+    270          
+    271          
+    272          /**
+    273           *  Returns the data byte read
+    274           */
+    275          static unsigned char SpiRead( void ) //!The data byte to be written
+    276          {
+    277              mSpiTxBuffer[0] = 0;
+    278              dn_ioctl( DN_SPI_DEV_ID,
+    279                        DN_IOCTL_SPI_TRANSFER,
+    280                        &mSpiTransfer,
+    281                        sizeof(mSpiTransfer) );
+    282          	
+    283              return( (unsigned char)mSpiRxBuffer[0] );
+    284          }
+    285          
+    286          
+    287          /**
+    288           *  The micros SPI SS only supports 8 and 16 bit transfers.
+    289           *  A manually control chip select is being used to support the 
+    290           *  LTC2984 multi-byte transfer requirements.
+    291           */
+    292          static void ConfigureChipSelect( void )
+    293          {
+    294              GpioConfigPin( PIN_CS, DN_IOCTL_GPIO_CFG_OUTPUT, PIN_HIGH );
+    295          }
+    296          
+    297          
+    298          /**
+    299           *  Assert chip select by writing 0 to pin
+    300           */
+    301          static void AssertChipSelect( void )
+    302          {
+    303              GpioWrite( PIN_CS, PIN_LOW );
+    304          }
+    305          
+    306          
+    307          /**
+    308           *  Deassert chip select by writing 1 to pin
+    309           */
+    310          static void DeassertChipSelect( void )
+    311          {
+    312              GpioWrite( PIN_CS, PIN_HIGH );
+    313          }
+    314          
+    315          
+    316          static unsigned char HighByte( short data )
+    317          {
+    318            return( (unsigned char)(data >> 8) );
+    319          }
+    320          
+    321          
+    322          static char LowByte( short data )
+    323          {
+    324              return( (unsigned char)(data && 0xff) );
+    325          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       0   AssertChipSelect
+         0   -> GpioWrite
+      16   AssignChannel
+         0   -> DeassertChipSelect
+        16   -> InitializeMemoryWrite
+        16   -> SpiWrite
+       8   ConversionDone
+         8   -> DeassertChipSelect
+         8   -> InitializeMemoryRead
+         8   -> SpiRead
+       0   DeassertChipSelect
+         0   -> GpioWrite
+       8   InitSPI
+         8   -> GpioConfigPin
+         8   -> dn_open
+       8   InitializeMemoryRead
+         8   -> AssertChipSelect
+         0   -> SpiWrite
+         8   -> SpiWrite
+       8   InitializeMemoryWrite
+         8   -> AssertChipSelect
+         0   -> SpiWrite
+         8   -> SpiWrite
+       8   PrintFaultData
+         0   -> DbgPrint
+         8   -> DbgPrint
+      24   ReadTemperatureResult
+        24   -> DeassertChipSelect
+        24   -> InitializeMemoryRead
+        24   -> SpiRead
+        24   -> __aeabi_fmul
+        24   -> __aeabi_i2f
+       8   SpiRead
+         8   -> dn_ioctl
+       0   SpiWrite
+         0   -> dn_ioctl
+       8   WriteSingleByte
+         0   -> DeassertChipSelect
+         8   -> InitializeMemoryWrite
+         8   -> SpiWrite
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable11
+       4  ?Subroutine0
+       6  ?Subroutine1
+       6  ?Subroutine2
+      40  ?_0
+      36  ?_1
+      36  ?_2
+      36  ?_3
+      32  ?_4
+      32  ?_5
+      36  ?_6
+      36  ?_7
+      40  ?_8
+       4  AssertChipSelect
+      40  AssignChannel
+      26  ConversionDone
+       2  DeassertChipSelect
+      70  InitSPI
+      32  InitializeMemoryRead
+      34  InitializeMemoryWrite
+     148  PrintFaultData
+      84  ReadTemperatureResult
+      24  SpiRead
+      14  SpiWrite
+      20  WriteSingleByte
+      34  mSpiTransfer
+          mSpiTxBuffer
+          mSpiRxBuffer
+          mSpiOpenArgs
+
+ 
+  34 bytes in section .bss
+ 842 bytes in section .text
+ 
+ 842 bytes of CODE memory
+  34 bytes of DATA memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,703 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\ltc2984.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC15A.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\ltc2984.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\ltc2984.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\ltc2984.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\ltc2984.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to configure and control the LTC2984 ADC.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_system.h"
+     19          #include "dn_fs.h"
+     20          #include "dn_api_param.h"
+     21          #include "dn_exe_hdr.h"
+     22          #include "dn_common.h"
+     23          #include "dn_system.h"
+     24          #include "dn_gpio.h"
+     25          
+     26          // App includes
+     27          #include "debug.h"
+     28          #include "ltc2984.h"
+     29          #include "ltc2984_cfg.h"
+     30          #include "spi.h"
+     31          #include "gpio.h"
+     32          #include "config.h"
+     33          #include "moteapp.h"
+     34          
+     35          
+     36          //=========================== defines and enums ===============================
+     37          
+     38          #define TASK_APP_LTC2984_STK_SIZE	256
+     39          #define TASK_APP_LTC2984_PRIORITY	53
+     40          #define TASK_APP_LTC2984_NAME		"TASK_LTC2984"
+     41          
+     42          
+     43          //=========================== structs & enums =================================
+     44          
+     45          // Read task
+     46          typedef struct
+     47          {
+     48          	OS_STK          readerTaskStack[TASK_APP_LTC2984_STK_SIZE];
+     49          	OS_EVENT*       readerSemaphore;
+     50          } TaskParams_t;
+     51          
+     52          
+     53          // 3-wire PT-100 RTD, 50uA excitiation on Channel 2, using American standard
+     54          const unsigned kRTDChannelConfig = SENSOR_TYPE__RTD_PT_100
+     55          				 | RTD_RSENSE_CHANNEL__2
+     56          				 | RTD_NUM_WIRES__3_WIRE
+     57          				 | RTD_EXCITATION_CURRENT__50UA
+     58          				 | RTD_STANDARD__AMERICAN;
+     59          
+     60          // Sense resistor 10K
+     61          const unsigned kSenseResistorChannelConfig = SENSOR_TYPE__SENSE_RESISTOR | 0x9c4000;
+     62          
+     63          const float kTemperatureRecalibrationThreshold  = 0.25;
+     64          const float kExpectedReferenceTemperature       = 0.0;
+     65          const int   kReferenceTestChannel		= 8;
+     66          
+     67          
+     68          //=========================== module parameters ======================================
+     69          
+     70          static TaskParams_t		mAppVars;
+     71          static TemperatureData_t	mTemperatureReadings;
+     72          static OS_EVENT			*mDataLock;
+     73          static bool		   	mUpdateConfiguration = false;
+     74          static float		        mRawDataReading[TOTAL_NUMBER_OF_CHANNELS];
+     75          
+     76          
+     77          //=========================== prototypes ======================================
+     78          
+     79          // Read task
+     80          static void		ReadLTC2984Task( void *unused );
+     81          static void		ConfigureLTC2984( void );
+     82          static bool		EnableLTC2984( void );
+     83          static void		DisableLTC2984( void );
+     84          static void		InitiateReadSequence( void );
+     85          static bool		ReadConversionComplete( void );
+     86          static void		ReadTemperatureValues( void );
+     87          static void		ComputeAverageTemperature( void );
+     88          const  char		*ChannelFault(unsigned char status);
+     89          static void		LockData( void );
+     90          static void		UnlockData( void );
+     91          
+     92          
+     93          /**
+     94           *	Initialization of LTC2984 task
+     95           */
+     96          void InitLTC2984( void )
+     97          {
+     98          	DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Initializing Interface\r\n" );
+     99          
+    100          	// Create semaphore for task control
+    101          	mAppVars.readerSemaphore = OSSemCreate(1);
+    102          
+    103          	// Create shared data lock
+    104          	mDataLock = OSSemCreate(1);
+    105          
+    106          	// Create reader task
+    107          	DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Creating Task\r\n" );
+    108          	unsigned char osErr = OSTaskCreateExt(ReadLTC2984Task,
+    109          								   (void *)0,
+    110          								   (OS_STK *)(&mAppVars.readerTaskStack[TASK_APP_LTC2984_STK_SIZE - 1]),
+    111          								   TASK_APP_LTC2984_PRIORITY,
+    112          								   TASK_APP_LTC2984_PRIORITY,
+    113          								   (OS_STK *)mAppVars.readerTaskStack,
+    114          								   TASK_APP_LTC2984_STK_SIZE,
+    115          								   (void *)0,
+    116          								   OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR );
+    117             
+    118          	OSTaskNameSet( TASK_APP_LTC2984_PRIORITY,
+    119          				   (unsigned char *)TASK_APP_LTC2984_NAME,
+    120          				   &osErr );
+    121          }
+    122          
+    123          
+    124          /**
+    125           *	Signal semaphore to run temperature acquisition task.
+    126           */
+    127          void AcquireTemperatureReadings( void )
+    128          {
+    129          	OSSemPost( mAppVars.readerSemaphore );
+    130          }
+    131          
+    132          
+    133          /**
+    134           *	Get current temperature and channel status
+    135           */
+    136          void GetCurrentTemperatures( LTC2984Data_t *pReading )
+    137          {
+    138          	LockData();
+    139          	int channel;
+    140          	for( channel = 0; channel < (TOTAL_NUMBER_OF_CHANNELS - 1); channel++ )
+    141          	{
+    142          		pReading->channel[channel].status      = mTemperatureReadings.currentReading[channel].status;
+    143          		pReading->channel[channel].temperature = mTemperatureReadings.temperatureAverage[channel];
+    144          	}
+    145          	UnlockData();
+    146          }
+    147          
+    148          
+    149          /**
+    150           *	Get results for a specific channel
+    151           */
+    152          void GetChannelReading(unsigned char channelNumber, AdcReading_t *reading)
+    153          {
+    154          	LockData();
+    155          	memcpy((void *)reading, (void const *)&mTemperatureReadings.currentReading[channelNumber], sizeof(AdcReading_t));
+    156          	UnlockData();
+    157          }
+    158          
+    159          
+    160          /**
+    161           *	Return raw data and channel enable/disable
+    162           */
+    163          void GetRawTemperatureReadings(unsigned char *channelConfig, float *temperatures)
+    164          {
+    165          	LockData();
+    166          	ChannelConfiguration_t config[TOTAL_NUMBER_OF_CHANNELS];
+    167          	GetConfiguration( (unsigned char *)&config[0] );
+    168          
+    169          	*channelConfig = 0;
+    170          	for( int channel = 0; channel < (TOTAL_NUMBER_OF_CHANNELS - 1); channel++ )
+    171          	{
+    172          		temperatures[channel] = mRawDataReading[channel];
+    173          		if (1 == config[channel].channelEnable)
+    174          		{
+    175          			*channelConfig |= 1 << channel;
+    176          		}
+    177          	}	
+    178          	UnlockData();
+    179          }
+    180          
+    181          
+    182          /**
+    183           *	The configuration changed, then LTC2984 configuration needs to be updated
+    184           *	Set parameter used by task to force reconfiguration.
+    185           */
+    186          void UpdateADCConfiguration( void )
+    187          {
+    188          	mUpdateConfiguration = true;
+    189          }
+    190          
+    191          
+    192          /**
+    193           *	This task waits for the mote to join, then periodically sends temperature/ADC values.
+    194           *	It is assumed that the gpio and spi are initialized prior to calling this module.
+    195           */
+    196          static void ReadLTC2984Task( void *unused )
+    197          {
+    198          	unsigned char osErr;
+    199          	bool validRead = false;
+    200          
+    201          	DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Starting Task\r\n" );
+    202          
+    203          	// Interrupt  input used to indicate read state of LTC2984
+    204          	GpioConfigPin( PIN_INTERRUPT, DN_IOCTL_GPIO_CFG_INPUT, DN_GPIO_PULL_NONE );
+    205          
+    206          	// Reset output used to place LTC2984 in low power mode
+    207          	GpioConfigPin( PIN_RESET, DN_IOCTL_GPIO_CFG_OUTPUT, PIN_HIGH );
+    208          
+    209          	DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Enabling Device\r\n" );
+    210          	EnableLTC2984();
+    211          
+    212          	// Configure LTC2984
+    213          	DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Configuring Device\r\n" );
+    214          	ConfigureLTC2984();
+    215                           
+    216          	while( 1 )
+    217          	{           
+    218          		DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Disabling Device\r\n" );
+    219          		DisableLTC2984();
+    220          
+    221          		// Wait on acquisition start signal
+    222          		DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Waiting for ADC Acquisition Start\r\n" );
+    223          		OSSemPend( mAppVars.readerSemaphore, 0, &osErr );
+    224          		validRead = false;
+    225          
+    226          		if( mUpdateConfiguration )
+    227          		{
+    228          			// Configuration required
+    229          			ConfigureLTC2984();
+    230          		}
+    231          		
+    232          		do
+    233          		{
+    234          			// Do not read ADC until it is configured
+    235          			if( !mUpdateConfiguration )
+    236          			{
+    237          				break;
+    238          			}
+    239          
+    240          			// Enable LTC2984 from low power mode
+    241          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Enabling\r\n" );
+    242          			if( !EnableLTC2984() )
+    243          			{
+    244          				DbgPrint( DBG_LEVEL_ERROR, "ERROR. LTC2984 Failed to enable device\r\n" );
+    245          				break;
+    246          			}
+    247          
+    248          			// Initiate a read of all channels
+    249          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Acquisition Start\r\n" );
+    250          			InitiateReadSequence();
+    251          
+    252          			// Wait for read complete
+    253          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Acquisition Complete\r\n" );
+    254          			if( !ReadConversionComplete() )
+    255          			{
+    256          				DbgPrint( DBG_LEVEL_ERROR, "ERROR. LTC2984 Failed to receive conversion complete\r\n" );
+    257          				break;
+    258          			}
+    259          
+    260          			// Read all channels (8 data channels and 1 test channel)
+    261          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Reading Temperatures\r\n" );
+    262          			ReadTemperatureValues();
+    263          
+    264          			// Compute Moving Average of Readings
+    265          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Computing Average Temperature\r\n" );
+    266          			ComputeAverageTemperature();
+    267          
+    268          			// Signal conversion complete
+    269          			TemperatureReadingsAvailable();
+    270          			validRead = true;
+    271          
+    272          		} while(0);
+    273          
+    274          		// Re-configure SPI and device on any read error
+    275          		if( !validRead )
+    276          		{
+    277          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Enabling Device\r\n" );
+    278          			EnableLTC2984();
+    279          
+    280          			// Initialize SPI interface
+    281          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Initializing SPI Interface\r\n" );
+    282          			InitSPI();
+    283          			
+    284          			// Configure LTC2984
+    285          			DbgPrint( DBG_LEVEL_INFO, "STATUS. LTC2984 Configuring Device\r\n" );
+    286          			ConfigureLTC2984();
+    287          		}
+    288          	}
+    289          }
+    290          
+    291          
+    292          /**
+    293           *	An initial power on takes about 200ms.
+    294           *	Following power on, reset to interrupt high is about 100ms
+    295           */
+    296          static bool EnableLTC2984( void )
+    297          {
+    298          	// De-assert the reset line
+    299          	GpioWrite( PIN_RESET, PIN_HIGH );
+    300          
+    301          	// Wait for interrupt line to go high
+    302          	unsigned char interruptPin;
+    303          	unsigned char tics = 0;
+    304          	do
+    305          	{
+    306          		OSTimeDly(10);
+    307          		interruptPin = GpioRead( PIN_INTERRUPT );
+    308          	} while( (0 == interruptPin) && (25 > ++tics) );
+    309          
+    310          	return(0 == interruptPin);
+    311          }
+    312          
+    313          
+    314          /**
+    315           *	Assert reset line to enter low power mode
+    316           *	Wait for interrupt pin to indicate 
+    317           */
+    318          static void DisableLTC2984( void )
+    319          {
+    320          	// De-assert the reset line
+    321          	GpioWrite( PIN_RESET, PIN_LOW );
+    322          }
+    323          
+    324          
+    325          /**
+    326           *	Configure the 8 RTD channels and 9th RTD test channel
+    327           *
+    328           *	LTC2984 has channels 1 & 2 used for RTD current source and sense resistor.
+    329           *	Each data channel is constructed from consecutive channel pairs.
+    330           *	Configuration is performed on CH(n) and CH(n-1) is its differential pair.
+    331           *	Channels are number 1..20, but address are zero based. So 0 & 1 are Rsense,
+    332           *  and first data channel is 3 with channel 2 as it differential pair.
+    333           */
+    334          static void ConfigureLTC2984( void )
+    335          {
+    336          	ChannelConfiguration_t config[TOTAL_NUMBER_OF_CHANNELS];
+    337          	if( !GetConfiguration( (unsigned char *)&config[0] ) )
+    338          	{
+    339          		// Signal to try again for a valid configuration
+    340          		mUpdateConfiguration = true;
+    341          		return;
+    342          	}
+    343          
+    344          	// Configuring is now valid
+    345          	mUpdateConfiguration = false;
+    346          	// Configure the current source and Rsense for RTDs
+    347          	// Channel 1 = Rsense, channel 0 = Rsense - 1
+    348          	AssignChannel( 1, kSenseResistorChannelConfig );
+    349          
+    350          	// Configure the RTD channel pairs
+    351          	int i;
+    352          	int channel;
+    353          	for( channel = 3; channel < LAST_LTC2984_CHANNEL; (channel += 2), i++ )
+    354          	{
+    355          		if( 1 == config[i].channelEnable )
+    356          		{
+    357          			AssignChannel( channel, kRTDChannelConfig );
+    358          		}
+    359          	}
+    360          }
+    361          
+    362          
+    363          /**
+    364           *	Write start to address 0x000 to read all 9 temperature readings
+    365           */
+    366          static void InitiateReadSequence( void )
+    367          {
+    368          	WriteSingleByte( READ_START_ADDRESSS, READ_MULTIPLE_CHANNELS );
+    369          }
+    370          
+    371          /**
+    372           *	Read interrupt pin until it goes high, and then check the status reagister
+    373           *	to confirm conversion is complete. Each conversion takes about 251ms.
+    374           *  Total Time = 9 * 251ms ==> 2.259 seconds
+    375           */
+    376          static bool ReadConversionComplete( void )
+    377          {
+    378          	// Wait for interrupt line to go high, 3 second timeout
+    379                  unsigned char interruptPin;
+    380                  int tics = 0;
+    381          	do
+    382          	{
+    383          		OSTimeDly(10);
+    384          		interruptPin = GpioRead(PIN_INTERRUPT);
+    385          	} while ((0 == interruptPin) && (300 > ++tics));
+    386          
+    387          	// Read conversion results via status register
+    388          	bool status = ConversionDone();
+    389          
+    390          	return( status );
+    391          }
+    392          
+    393          
+    394          /**
+    395           *	Read all temperature channels (temperature and status)
+    396           *  First data channel is channel 4, having a channel address of 3 using zero based numbering.
+    397           */
+    398          static void ReadTemperatureValues( void )
+    399          {
+    400          	LockData();
+    401          	int readIndex = 0;
+    402          	int channel;
+    403          	for( channel = 3; channel < LAST_LTC2984_CHANNEL; (channel += 2) )
+    404          	{
+    405          		// Get reading and apply temperature calibration
+    406          		ReadTemperatureResult( channel, &mTemperatureReadings.currentReading[readIndex] );
+    407          		mRawDataReading[readIndex] = mTemperatureReadings.currentReading[readIndex].temperature;
+    408          		float calibration = GetTemperatureCalibrationValue( readIndex, mRawDataReading[readIndex] );
+    409          		mTemperatureReadings.currentReading[readIndex].temperature = mRawDataReading[readIndex] - calibration;
+    410          		if( VALID != mTemperatureReadings.currentReading[readIndex].status )
+    411          		{
+    412          			DbgPrint( DBG_LEVEL_ERROR, "ERROR. Error reading channel %d, Temperature: %f, Status: %d\r\n",
+    413          					  (readIndex + 1), 
+    414          					  mTemperatureReadings.currentReading[readIndex].temperature,
+    415          					  mTemperatureReadings.currentReading[readIndex].status );
+    416          
+    417          			PrintFaultData( mTemperatureReadings.currentReading[readIndex].status );
+    418          		}
+    419          		else
+    420          		{
+    421          			DbgPrint( DBG_LEVEL_INFO, "STATUS. Read Channel %d, Temperature: %f, Status: %d\r\n",
+    422          					 (readIndex + 1),
+    423          					 mTemperatureReadings.currentReading[readIndex].temperature,
+    424          					 mTemperatureReadings.currentReading[readIndex].status );
+    425          		}
+    426          		readIndex++;
+    427          	}
+    428          	UnlockData();
+    429          }
+    430          
+    431          
+    432          /**
+    433           *	Add temperture measurement to average
+    434           */
+    435          static void ComputeAverageTemperature( void )
+    436          {
+    437          	int point;
+    438          	float sum = 0;
+    439          	int channel;
+    440          
+    441          	LockData();
+    442          	for (channel = 0; channel < (TOTAL_NUMBER_OF_CHANNELS - 1); channel++)
+    443          	{
+    444          		if( VALID == mTemperatureReadings.currentReading[channel].status )
+    445          		{
+    446          			// If data queue is not initialized, fill it with current temperature
+    447          			if( 0 == mTemperatureReadings.initialized )
+    448          			{
+    449          				for( point = 0; point < SAMPLE_AVERAGE_SIZE; point++ )
+    450          				{
+    451          					mTemperatureReadings.averagingQueue[channel][point] = mTemperatureReadings.currentReading[channel].temperature;
+    452          				}
+    453          				mTemperatureReadings.initialized[channel] = 1;
+    454          			}
+    455          			mTemperatureReadings.averagingQueue[channel][mTemperatureReadings.readIndex] = mTemperatureReadings.currentReading[channel].temperature;
+    456          			mTemperatureReadings.readIndex = (mTemperatureReadings.readIndex + 1) % SAMPLE_AVERAGE_SIZE;
+    457          			sum = 0;
+    458          			for( point = 0; point < SAMPLE_AVERAGE_SIZE; point++ )
+    459          			{
+    460          				sum += mTemperatureReadings.averagingQueue[channel][point];
+    461          			}
+    462          			mTemperatureReadings.temperatureAverage[channel] = sum / (float)SAMPLE_AVERAGE_SIZE;
+    463          		}
+    464          	}
+    465          	UnlockData();
+    466          }
+    467          
+    468          
+    469          const char *ErrorStrings[] =
+    470          {
+    471          	"SENSOR HARD FAILURE",
+    472          	"ADC HARD FAILURE",
+    473          	"COLD JUNCTION HARD FAILURE",
+    474          	"COLD JUNCTION SOFT FAILURE",
+    475          	"SENSORCOLD JUNCTIONABOVE",
+    476          	"COLD JUNCTION",
+    477          	"ADC RANGE ERROR",
+    478          	"VALID",
+    479          };
+    480          
+    481          
+    482          const char *ChannelFault( unsigned char status )
+    483          {
+    484              if (status & SENSOR_HARD_FAILURE)   return(ErrorStrings[0]);
+    485              if (status & ADC_HARD_FAILURE)      return(ErrorStrings[1]);
+    486              if (status & CJ_HARD_FAILURE)       return(ErrorStrings[2]);
+    487              if (status & CJ_SOFT_FAILURE)       return(ErrorStrings[3]);
+    488              if (status & SENSOR_ABOVE)	        return(ErrorStrings[4]);
+    489              if (status & SENSOR_BELOW)	        return(ErrorStrings[5]);
+    490              if (status & ADC_RANGE_ERROR)       return(ErrorStrings[6]);
+    491              if (status & VALID)		        return(ErrorStrings[7]);
+    492              return( NULL );
+    493          }
+    494          
+    495          
+    496          static void LockData( void ) 
+    497          {
+    498          	unsigned char osErr;
+    499          	OSSemPend( mDataLock, 0, &osErr );
+    500          }
+    501          
+    502          
+    503          static void UnlockData( void ) 
+    504          {
+    505              OSSemPost( mDataLock );
+    506          }
+    507          
+    508          
+    509          /**
+    510           *      Run test on reference channel to see if it remains within expected range.
+    511           *	100 Ohm precision resistor should read 0C
+    512           */
+    513          void CheckTemperatureTestChannel( float *measured, float *expected, float *threshold )
+    514          {
+    515              *measured  = mRawDataReading[kReferenceTestChannel];
+    516              *expected  = kExpectedReferenceTemperature;
+    517              *threshold = kTemperatureRecalibrationThreshold;
+    518          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       0   AcquireTemperatureReadings
+         0   -> OSSemPost
+       0   ChannelFault
+       8   CheckTemperatureTestChannel
+     304   ConfigureLTC2984
+       304   -> AssignChannel
+       304   -> GetConfiguration
+       8   EnableLTC2984
+         8   -> GpioRead
+         8   -> GpioWrite
+         8   -> OSTimeDly
+      16   GetChannelReading
+        16   -> LockData
+         0   -> UnlockData
+      16   GetCurrentTemperatures
+        16   -> LockData
+         0   -> UnlockData
+     312   GetRawTemperatureReadings
+       312   -> GetConfiguration
+       312   -> LockData
+       312   -> UnlockData
+      32   InitLTC2984
+        32   -> DbgPrint
+        32   -> OSSemCreate
+        32   -> OSTaskCreateExt
+        32   -> OSTaskNameSet
+       8   LockData
+         8   -> OSSemPend
+      40   ReadLTC2984Task
+        40   -> ConfigureLTC2984
+        40   -> ConversionDone
+        40   -> DbgPrint
+        40   -> EnableLTC2984
+        40   -> GpioConfigPin
+        40   -> GpioRead
+        40   -> GpioWrite
+        40   -> InitSPI
+        40   -> LockData
+        40   -> OSSemPend
+        40   -> OSTimeDly
+        40   -> ReadTemperatureValues
+        40   -> TemperatureReadingsAvailable
+        40   -> UnlockData
+        40   -> WriteSingleByte
+        40   -> __aeabi_fadd
+        40   -> __aeabi_fdiv
+      48   ReadTemperatureValues
+        48   -> DbgPrint
+        48   -> GetTemperatureCalibrationValue
+        48   -> LockData
+        48   -> PrintFaultData
+        48   -> ReadTemperatureResult
+         0   -> UnlockData
+        48   -> __aeabi_f2d
+        48   -> __aeabi_fsub
+       0   UnlockData
+         0   -> OSSemPost
+       0   UpdateADCConfiguration
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable43
+       4  ??DataTable43_1
+       4  ??DataTable43_2
+       4  ??DataTable43_3
+       4  ??DataTable43_4
+       4  ??DataTable43_5
+       4  ??DataTable43_6
+       4  ??DataTable43_7
+       6  ?Subroutine0
+       8  ?Subroutine1
+      20  ?_0
+      20  ?_1
+      16  ?_10
+      32  ?_11
+      36  ?_12
+      40  ?_13
+      36  ?_14
+      52  ?_15
+      28  ?_16
+      44  ?_17
+      36  ?_18
+      40  ?_19
+      28  ?_2
+      56  ?_20
+      40  ?_21
+      48  ?_22
+      48  ?_23
+      64  ?_24
+      56  ?_25
+      28  ?_3
+      28  ?_4
+      16  ?_5
+      16  ?_6
+       8  ?_7
+      44  ?_8
+      32  ?_9
+      12  AcquireTemperatureReadings
+      70  ChannelFault
+      20  CheckTemperatureTestChannel
+      66  ConfigureLTC2984
+      38  EnableLTC2984
+      32  ErrorStrings
+      28  GetChannelReading
+      48  GetCurrentTemperatures
+      68  GetRawTemperatureReadings
+     102  InitLTC2984
+      16  LockData
+     362  ReadLTC2984Task
+     140  ReadTemperatureValues
+       8  UnlockData
+       8  UpdateADCConfiguration
+       4  kExpectedReferenceTemperature
+       4  kRTDChannelConfig
+       4  kReferenceTestChannel
+       4  kSenseResistorChannelConfig
+       4  kTemperatureRecalibrationThreshold
+    1356  mAppVars
+          mTemperatureReadings
+       4  mDataLock
+      36  mRawDataReading
+       1  mUpdateConfiguration
+
+ 
+ 1 397 bytes in section .bss
+    32 bytes in section .data
+   184 bytes in section .rodata
+ 1 780 bytes in section .text
+ 
+ 1 780 bytes of CODE  memory
+   184 bytes of CONST memory
+ 1 429 bytes of DATA  memory
+
+Errors: none
+Warnings: none

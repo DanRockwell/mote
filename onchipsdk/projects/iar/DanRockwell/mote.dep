@@ -1,0 +1,922 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <fileVersion>2</fileVersion>
+    <fileChecksum>1150278987</fileChecksum>
+    <configuration>
+        <name>Debug</name>
+        <outputs>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\alarm.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\spline.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\temperature.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\report.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\fwupdate.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\gpio.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_local.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\alarm.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\initsys.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Config_Normal.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\ltc2984.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\battery.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\fwupdate.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\report.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\security.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\temperature.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\calibration.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\flash.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\initsys.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\moteapp.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\security.o</file>
+            <file>$PROJ_DIR$\Debug\List\flash.lst</file>
+            <file>$PROJ_DIR$\Debug\List\report.lst</file>
+            <file>$PROJ_DIR$\Debug\List\security.lst</file>
+            <file>$PROJ_DIR$\Debug\List\fwupdate.lst</file>
+            <file>$PROJ_DIR$\Debug\List\moteapp.lst</file>
+            <file>$PROJ_DIR$\Debug\List\dnm_service.lst</file>
+            <file>$PROJ_DIR$\Debug\List\temperature.lst</file>
+            <file>$PROJ_DIR$\Debug\List\loc_task.lst</file>
+            <file>$PROJ_DIR$\Debug\List\dnm_local.lst</file>
+            <file>$PROJ_DIR$\Debug\List\cli_task.lst</file>
+            <file>$PROJ_DIR$\Debug\Obj\loc_task.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdbool.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_ucli.o</file>
+            <file>$PROJ_DIR$\Debug\List\mote.map</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_rate_ctrl.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\radio.pbi</file>
+            <file>$PROJ_DIR$\Debug\Exe\mote.out</file>
+            <file>$TOOLKIT_DIR$\lib\shb_l.a</file>
+            <file>$PROJ_DIR$\Debug\Obj\loc_task.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\gpio.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\cli_task.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\cli_task.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\calibration.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\config.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\calibration.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdarg.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\radio.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\errno.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\time.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdlib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\ctype.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\battery.pbi</file>
+            <file>$TOOLKIT_DIR$\lib\dl7M_tln.a</file>
+            <file>$PROJ_DIR$\Debug\Obj\spline.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_stdlib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\debug.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\alarm.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\spi.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\display.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\time.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdio.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\initsys.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\string.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_ucli.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\debug.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\math.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\cli_task.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_rate_ctrl.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\loc_task.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\lib\m7M_tl.a</file>
+            <file>$PROJ_DIR$\Debug\Obj\mote.pbd</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_service.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_local.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_rate_ctrl.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\yvals.h</file>
+            <file>$TOOLKIT_DIR$\lib\rt7M_tl.a</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_float_setup.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_local.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\display.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_ucli.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\moteapp.pbi</file>
+            <file>$PROJ_DIR$\..\all_projects.iarinc</file>
+            <file>$PROJ_DIR$\Debug\List\display.lst</file>
+            <file>$PROJ_DIR$\Debug\List\dnm_ucli.lst</file>
+            <file>$PROJ_DIR$\Debug\List\dnm_rate_ctrl.lst</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\app_common.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\app_task_cfg.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\battery.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\calibration.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\config.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\debug.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\flash.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\gpio.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\ltc2984.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\ltc2984_cfg.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\moteapp.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\radio.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\report.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\spi.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\spline.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\time.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\inc\version.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\alarm.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\battery.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\calibration.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\config.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\debug.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\display.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\flash.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\fwupdate.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\gpio.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\initsys.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\ltc2984.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\moteapp.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\radio.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\report.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\security.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\spi.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\spline.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\temperature.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\time.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\app_cfg.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\build.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\cli_task.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\cli_task.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\loc_task.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\loc_task.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\Ver.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\app\common\well_known_ports.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_adc.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_api_common.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_api_local.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_api_param.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_channel.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_cli.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_common.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_errno.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_exe_hdr.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_flash_drv.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_flash_info.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_fs.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_gpio.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_hwinfo.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_i2c.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_lptimer.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_mem.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_mesh.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_mesh_const.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_onewire.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_pack.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_pwm.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_radio.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_randhw.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_security.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_spi.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_system.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_temperature.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_time.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_typedef.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_uart.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\dn_uart_raw.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\os_cfg.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\os_cpu.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\inc\ucos_ii.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\lib\libip_stack.a</file>
+            <file>$PROJ_DIR$\..\..\..\src\lib\libucos_full.a</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\clilib\dnm_ucli.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\clilib\dnm_ucli.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_local.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_local.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_rate_ctrl.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_rate_ctrl.h</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_service.c</file>
+            <file>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_service.h</file>
+            <file>$PROJ_DIR$\Debug\List\alarm.lst</file>
+            <file>$PROJ_DIR$\Debug\List\ltc2984.lst</file>
+            <file>$PROJ_DIR$\Debug\List\radio.lst</file>
+            <file>$PROJ_DIR$\Debug\List\initsys.lst</file>
+            <file>$PROJ_DIR$\Debug\List\config.lst</file>
+            <file>$PROJ_DIR$\Debug\List\spline.lst</file>
+            <file>$PROJ_DIR$\..\..\..\tools\linker_configuration\Eterna.icf</file>
+            <file>$PROJ_DIR$\Debug\List\calibration.lst</file>
+            <file>$PROJ_DIR$\Debug\List\time.lst</file>
+            <file>$PROJ_DIR$\Debug\Obj\ltc2984.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\stddef.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\flash.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_service.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\config.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\flash.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\dnm_service.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\temperature.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\fwupdate.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\spline.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\report.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\time.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\config.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\spi.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\alarm.pbi</file>
+            <file>$PROJ_DIR$\Debug\List\gpio.lst</file>
+            <file>$PROJ_DIR$\Debug\List\spi.lst</file>
+            <file>$PROJ_DIR$\Debug\List\debug.lst</file>
+            <file>$PROJ_DIR$\Debug\List\battery.lst</file>
+            <file>$PROJ_DIR$\Debug\Obj\display.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\security.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\gpio.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\radio.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\ltc2984.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\spi.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\debug.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\battery.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\moteapp.__cstat.et</file>
+        </outputs>
+        <file>
+            <name>[ROOT_NODE]</name>
+            <outputs>
+                <tool>
+                    <name>ILINK</name>
+                    <file> 39 36</file>
+                </tool>
+            </outputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\Debug\Exe\mote.out</name>
+            <outputs>
+                <tool>
+                    <name>ILINK</name>
+                    <file> 36</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ILINK</name>
+                    <file> 186 60 11 45 44 46 59 62 6 71 195 35 191 12 5 20 170 171 33 189 21 50 199 22 61 57 196 63 40 80 73 56</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\alarm.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 7</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 180 60</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 203</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 69 81 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 91 96 0 95 102 94 99 100</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 146 99 83 53 161 47 142 96 66 69 143 95 76 79 164 155 141 190 168 94 64 34 138 91 0 100 14 9 16 58 81 152 169 127 102 136 167</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\battery.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 215</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 207 11</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 55</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 141 190 164 168 169 127 167 161 142 135 143 155 147 139 130 173 140 132 175 137 136 152 92 96 98 93 102 91 34 95 94</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 164 143 175 102 83 161 139 53 92 47 168 155 173 142 79 136 66 130 98 76 167 49 141 152 64 135 147 132 96 93 14 9 16 58 190 169 127 140 137 95 91 94 34</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\calibration.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 18</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 187 45</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 48</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 96 95 102 91 34 94 97 105 99 100</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 143 47 168 169 99 83 152 164 76 96 53 95 127 94 91 66 146 161 79 142 155 141 190 102 64 138 97 105 14 9 16 58 136 167 34 100</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\config.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 201</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 184 46</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 193</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 96 95 102 91 94 97 99 100</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 138 91 83 136 155 164 79 34 53 96 47 95 66 161 141 97 76 168 167 64 146 143 99 14 9 16 58 142 152 190 169 127 102 94 100</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\debug.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 214</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 206 59</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 68</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 64 83 79 14 9 16 76 106 66 47 53 58 51 54 130 141 190 164 168 169 127 167 173 142 140 155 139 132 175 137 136 152 161 166 143 133 128 134 0 91 34 96 95 102 94 99 100</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 79 83 164 168 152 54 173 155 128 134 66 161 76 167 139 64 49 132 143 0 140 137 142 102 34 94 106 53 51 130 141 166 133 14 9 16 47 58 190 169 127 175 136 91 95 99 96 100</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\display.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 208</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 88 62</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 84</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\flash.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 19</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 23 191</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 194</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 144 145 96 97</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 138 83 167 53 144 47 79 76 164 155 66 161 141 96 168 142 64 34 146 143 145 97 136 14 9 16 58 152 190 169 127</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\fwupdate.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 4</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 26 12</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 197</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\gpio.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 210</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 204 5</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 42</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 141 190 164 168 169 127 167 130 173 142 140 155 139 132 175 137 136 152 147 161 143 98 96 102 91 95 94</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 164 132 14 83 79 141 53 98 16 168 140 155 152 94 66 161 102 9 58 167 139 175 136 142 64 34 130 147 143 96 76 47 190 169 127 173 49 137 91 95</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\initsys.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 8</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 183 20</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 65</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 141 190 83 79 14 9 16 76 164 168 169 127 167 161 142 146 147 139 155 135 138 136 152 143 133 128 96 97 34 95 102 91 94 98 104 99 100 93 106 0 103 101</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 83 143 99 94 146 95 103 164 79 161 141 135 96 98 106 101 168 16 102 91 147 138 133 97 104 93 0 190 169 76 14 9 167 155 152 34 100 127 142 139 136 128</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\ltc2984.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 212</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 181 189</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 10</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 147 139 96 99 100 104 98 95 102 91 94 101</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 138 104 142 169 53 147 9 58 164 155 141 190 83 168 66 161 99 95 79 14 16 152 76 127 139 100 64 34 146 143 96 98 101 47 136 167 102 91 94</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\moteapp.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 216</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 27 21</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 86</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 96 99 100 0 91 95 102 94 93 101 103</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 168 138 102 101 76 53 96 79 164 155 167 100 34 66 161 141 0 83 47 136 64 146 143 99 93 103 14 9 16 58 142 152 190 169 127 91 95 94</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\radio.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 211</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 182 50</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 38</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 69 81 167 168 141 190 164 169 127 143 155 132 173 142 140 139 175 137 136 152 96 102 91 95 94 107 0 99 100 97 98 161</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 83 168 79 95 47 164 34 53 175 152 66 69 143 102 97 76 141 49 139 169 94 64 167 132 96 107 0 98 14 9 16 58 81 127 142 136 155 91 190 173 140 137 99 100 161</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\report.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 3</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 24 199</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 13</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 96 0 91 34 95 102 94 99 100 103</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 127 83 143 164 53 0 47 168 152 169 76 99 96 66 146 161 95 79 142 155 141 190 91 64 138 103 14 9 16 58 136 167 102 34 94 100</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\security.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 209</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 25 22</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 15</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 141 190 83 79 14 9 16 76 164 168 169 127 167 66 47 64 130 173 142 140 155 139 132 175 137 136 152 159 143 133 128</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 152 143 164 79 76 140 155 64 127 141 132 173 168 83 139 175 136 66 130 159 133 190 169 14 9 16 167 47 142 49 137 128</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\spi.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 213</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 205 61</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 202</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 34 141 190 164 168 169 127 167 161 142 147 139 155 160 96 104 99 100 98</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 16 147 79 169 53 104 14 168 66 141 161 99 83 139 64 34 160 96 98 76 47 9 58 164 167 142 190 127 155 100</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\spline.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 1</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 185 57</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 198</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 105 53 58</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 79 66 9 83 105 76 47 14 16 53 58</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\temperature.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 2</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 29 196</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 17</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\DanRockwell\src\time.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 200</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 188 63</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 52</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 64 53 58 161 164 168 142 146 138 136 155 152 143 141 190 169 127 167 163 137 175 139 173 140 96 106</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 168 76 143 142 164 155 141 190 83 53 137 79 152 49 66 146 161 96 47 169 127 64 138 163 175 106 14 9 16 58 136 167 139 173 140</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\common\cli_task.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 43</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 32 44</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 70</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 141 190 164 168 169 127 167 161 142 173 140 155 139 130 133 128</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 83 164 79 14 161 16 66 130 9 168 167 142 141 173 133 76 47 190 169 127 49 155 140 139 128</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\app\common\loc_task.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 72</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 30 33</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 41</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 141 190 83 79 14 9 16 76 164 168 169 127 167 132 173 142 140 155 139 175 137 136 152 138</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 175 164 79 140 155 142 141 168 127 152 137 132 138 190 169 83 76 14 173 139 136 9 16 167 49</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\modules\clilib\dnm_ucli.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 67</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 89 35</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 85</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 64 83 79 14 9 16 76 66 47 54 141 190 164 168 169 127 167 173 142 140 155 139 161 147 145</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 76 161 168 54 164 64 173 145 79 167 139 66 141 147 83 140 155 14 9 16 47 190 169 127 142 49</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_local.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 82</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 31 6</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 77</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 66 83 79 14 9 16 76 47 139 142 168 169 127 164 167 155 175 137 136 152 173 140 141 190</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 9 155 175 167 136 169 66 173 79 14 16 83 168 139 164 142 76 141 47 152 49 190 127 137 140</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_rate_ctrl.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 78</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 90 71</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 37</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 177 164 168 142 139 169 127 167 155 173 140 175 137 136 152</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 168 139 164 173 155 127 177 83 136 152 175 142 169 167 140 49 79 14 9 16 137</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\src\modules\ip_applib\dnm_service.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 75</file>
+                </tool>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 28 195</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 192</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 87 179 164 168 142 139 169 127 167 155 173 140 175 137 136 152</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 127 139 155 164 136 168 179 83 152 175 173 142 169 167 140 49 79 14 9 16 137</file>
+                </tool>
+            </inputs>
+        </file>
+    </configuration>
+    <configuration>
+        <name>Release</name>
+        <outputs />
+        <forcedrebuild>
+            <name>[MULTI_TOOL]</name>
+            <tool>ILINK</tool>
+        </forcedrebuild>
+    </configuration>
+</project>

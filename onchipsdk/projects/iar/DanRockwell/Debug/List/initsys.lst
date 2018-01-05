@@ -1,0 +1,190 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\initsys.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC03F.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\initsys.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\initsys.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\initsys.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\initsys.c
+      1          /**
+      2           *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3           *
+      4           *	OS entry and task creation.
+      5           *
+      6           *	Author: Dan Rockwell
+      7           */
+      8          
+      9          #include "dn_common.h"
+     10          #include "dn_system.h"
+     11          #include "dn_fs.h"
+     12          #include "dn_gpio.h"
+     13          #include "dn_adc.h"
+     14          #include "dn_api_param.h" 
+     15          #include "dn_exe_hdr.h" 
+     16          
+     17          // application configuration
+     18          #include "Ver.h"
+     19          
+     20          // App includes
+     21          #include "debug.h"
+     22          #include "flash.h"
+     23          #include "config.h"
+     24          #include "calibration.h"
+     25          #include "gpio.h"
+     26          #include "spi.h"
+     27          #include "ltc2984.h"
+     28          #include "battery.h"
+     29          #include "time.h"
+     30          #include "alarm.h"
+     31          #include "report.h"
+     32          //#include "security.h"
+     33          #include "radio.h"
+     34          //#include "fwupdate.h"
+     35          //#include "display.h"
+     36          #include "moteapp.h"
+     37          
+     38          
+     39          //=========================== prototypes ======================================
+     40          
+     41          void InhibitRadio();
+     42          void EnableRadio();
+     43          
+     44          
+     45          /**
+     46           *	Entry point for the application.
+     47           */
+     48          int p2_init( void )
+     49          {
+     50          	InitDebug();			// done
+     51          
+     52          	InitFlash();			// done
+     53          
+     54          	InitConfiguration();	        // done
+     55          
+     56          	InitCalibration();		// done
+     57          
+     58          	InitGPIO();			// done
+     59          
+     60          	InitSPI();			// done
+     61          
+     62          	InitLTC2984();			// done
+     63          
+     64          	InitBattery();			// done
+     65          
+     66          	InitTime();			// done
+     67          
+     68          	InitAlarm();			// done
+     69          
+     70          	InitReport();			// done
+     71          
+     72          	//InitSecurity();		// later
+     73          	InitRadio();
+     74          
+     75          	//InitFwUpdate();		// later
+     76          
+     77          	//InitDisplay();		// later
+     78          
+     79          	RunMoteApp();
+     80          
+     81          	return 0;
+     82          }
+     83          
+     84          
+     85          void InhibitRadio() 
+     86          {
+     87          	// this is a stub
+     88          }
+     89          
+     90          
+     91          void EnableRadio() 
+     92          {
+     93          	// this is a stub
+     94          }
+     95          
+     96          
+     97          /**
+     98           *	A kernel header is a set of bytes prepended to the actual binary image of this
+     99           *	application. Thus header is needed for your application to start running.
+    100           */
+    101          DN_CREATE_EXE_HDR( DN_VENDOR_ID_NOT_SET,
+    102          				   DN_APP_ID_NOT_SET,
+    103          				   VER_MAJOR,
+    104          				   VER_MINOR,
+    105          				   VER_PATCH,
+    106          				   VER_BUILD );
+    107          
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+       0   EnableRadio
+       0   InhibitRadio
+       8   p2_init
+         8   -> InitAlarm
+         8   -> InitBattery
+         8   -> InitCalibration
+         8   -> InitConfiguration
+         8   -> InitDebug
+         8   -> InitFlash
+         8   -> InitGPIO
+         8   -> InitLTC2984
+         8   -> InitRadio
+         8   -> InitReport
+         8   -> InitSPI
+         8   -> InitTime
+         8   -> RunMoteApp
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       2  EnableRadio
+       2  InhibitRadio
+      32  kernelExeHdr
+      58  p2_init
+
+ 
+ 32 bytes in section .kernel_exe_hdr
+ 62 bytes in section .text
+ 
+ 62 bytes of CODE  memory
+ 32 bytes of CONST memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,234 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:47
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\config.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWBC8D.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\config.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\config.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\config.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\config.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to configure channels and GPIO.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          #include <stdbool.h>
+     16          
+     17          // SDK includes
+     18          #include "dn_system.h"
+     19          #include "dn_fs.h"
+     20          #include "dn_api_param.h"
+     21          #include "dn_exe_hdr.h"
+     22          #include "dn_common.h"
+     23          #include "dn_system.h"
+     24          
+     25          // App includes
+     26          #include "debug.h"
+     27          #include "config.h"
+     28          #include "flash.h"
+     29          #include "ltc2984.h"
+     30          
+     31          
+     32          //=========================== module parameters ======================================
+     33          
+     34          static ChannelConfiguration_t mChannelConfiguration[TOTAL_NUMBER_OF_CHANNELS];
+     35          static OS_EVENT	*mDataLock;
+     36          static bool	mConfigValid = false;
+     37          
+     38          
+     39          //=========================== prototypes ======================================
+     40          
+     41          static void	LockData(void);
+     42          static void UnlockData(void);
+     43          
+     44          
+     45          /**
+     46           *	Initialize the system configurator
+     47           */
+     48          void InitConfiguration( void )
+     49          {
+     50          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Configuration Manager\r\n" );
+     51          
+     52          	// Create shared data lock
+     53          	mDataLock = OSSemCreate(1);
+     54          
+     55          	memset( &mChannelConfiguration[0], 0, sizeof(mChannelConfiguration) );
+     56          	// Read configuration from FLASH
+     57          	if (ReadConfigurationFromFlash((unsigned char *)&mChannelConfiguration[0],
+     58          					(sizeof(ChannelConfiguration_t) * TOTAL_NUMBER_OF_CHANNELS)) )
+     59          	{
+     60          		// Flag ADC interface for new configuration
+     61          		mConfigValid = true;
+     62          		UpdateADCConfiguration();
+     63          	}
+     64          	else
+     65          	{
+     66          		DbgPrint( DBG_LEVEL_INFO, "ERROR. Failed to read Configuration from FLASH\r\n" );
+     67          	}
+     68          }
+     69          
+     70          
+     71          /**
+     72           *  Configuration for all channels
+     73           *	channel number, enable, sensor type, high limit, low limit, alarm trigger time
+     74           */
+     75          bool GetConfiguration( unsigned char *config )
+     76          {
+     77              if( !mConfigValid )
+     78              {
+     79          	DbgPrint( DBG_LEVEL_INFO, "ERROR. LTC2984 not configurated\r\n" );
+     80          	return false;
+     81              }
+     82          
+     83              LockData();
+     84              memcpy( config, 
+     85                      &mChannelConfiguration[0], 
+     86                      (sizeof(ChannelConfiguration_t) * TOTAL_NUMBER_OF_CHANNELS) );
+     87              UnlockData();
+     88              return true;
+     89          }
+     90          
+     91          
+     92          void GetChannelConfiguration(unsigned char channel, unsigned char *config)
+     93          {
+     94          	LockData();
+     95          	memcpy(config, (unsigned char *)&mChannelConfiguration[channel], sizeof(ChannelConfiguration_t));
+     96          	UnlockData();
+     97          }
+     98          
+     99          
+    100          void SetChannelConfiguration(unsigned char channel, unsigned char *config)
+    101          {
+    102          	LockData();
+    103          	memcpy((unsigned char *)&mChannelConfiguration[channel], config, sizeof(ChannelConfiguration_t));
+    104          
+    105          	// Write new configuration to FLASH
+    106          	if (!WriteConfigurationToFlash((unsigned char *)&mChannelConfiguration[0],
+    107          		(sizeof(ChannelConfiguration_t) * TOTAL_NUMBER_OF_CHANNELS)))
+    108          	{
+    109          		DbgPrint(DBG_LEVEL_INFO, "ERROR. Failed to write Configuration to FLASH\r\n");
+    110          	}
+    111          
+    112          	// Update ADC configuration
+    113          	UpdateADCConfiguration();
+    114          	mConfigValid = true;
+    115          
+    116          	UnlockData();
+    117          }
+    118          
+    119          
+    120          static void LockData(void)
+    121          {
+    122          	unsigned char osErr;
+    123          	OSSemPend( mDataLock, 0, &osErr );
+    124          }
+    125          
+    126          
+    127          static void UnlockData(void)
+    128          {
+    129          	OSSemPost( mDataLock );
+    130          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      16   GetChannelConfiguration
+        16   -> LockData
+         0   -> UnlockData
+        16   -> __aeabi_memcpy
+      16   GetConfiguration
+        16   -> DbgPrint
+        16   -> LockData
+        16   -> UnlockData
+        16   -> __aeabi_memcpy
+       8   InitConfiguration
+         0   -> DbgPrint
+         8   -> DbgPrint
+         8   -> OSSemCreate
+         8   -> ReadConfigurationFromFlash
+         0   -> UpdateADCConfiguration
+         8   -> __aeabi_memclr4
+       8   LockData
+         8   -> OSSemPend
+      16   SetChannelConfiguration
+        16   -> DbgPrint
+        16   -> LockData
+         0   -> UnlockData
+        16   -> UpdateADCConfiguration
+        16   -> WriteConfigurationToFlash
+        16   -> __aeabi_memcpy
+       0   UnlockData
+         0   -> OSSemPost
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable9
+      48  ?_0
+      52  ?_1
+      36  ?_2
+      48  ?_3
+      34  GetChannelConfiguration
+      50  GetConfiguration
+      74  InitConfiguration
+      16  LockData
+      66  SetChannelConfiguration
+       8  UnlockData
+     296  mConfigValid
+          mDataLock
+          mChannelConfiguration
+
+ 
+ 296 bytes in section .bss
+ 436 bytes in section .text
+ 
+ 436 bytes of CODE memory
+ 296 bytes of DATA memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,220 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:47
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\debug.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWBCBD.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\debug.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\debug.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\debug.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\debug.c
+      1          /******************************************************************************
+      2           *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3           *
+      4           *	Debug interface using the CLI0 port.
+      5           *
+      6           *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <stdio.h>
+     13          #include <time.h>
+     14          #include <string.h>
+     15          #include <stdlib.h>
+     16          #include <stdarg.h>
+     17          #include <errno.h>
+     18          #include <ctype.h>
+     19          
+     20          // SDK includes
+     21          #include "cli_task.h"
+     22          #include "loc_task.h"
+     23          #include "dn_common.h"
+     24          #include "dn_system.h"
+     25          #include "dn_uart_raw.h"
+     26          #include "dn_exe_hdr.h"
+     27          #include "Ver.h"
+     28          #include "well_known_ports.h"
+     29          #include "dnm_ucli.h"
+     30          
+     31          // App includes
+     32          #include "alarm.h"
+     33          
+     34          
+     35          //=========================== CLI handlers ====================================
+     36          
+     37          //dn_error_t SetDebugLevel( const char *arg, unsigned len );
+     38          //dn_error_t GetDebugLevel( const char *arg, unsigned len);
+     39          
+     40          
+     41          //=========================== variables =======================================
+     42          
+     43          static int mDebugLevel = DBG_LEVEL_ALL;
+     44          /*
+     45          const dnm_ucli_cmdDef_t cliCmdDefs[] = 
+     46          {
+     47              { &SetDebugLevel, "set-level", "", DN_CLI_ACCESS_LOGIN },
+     48              { &GetDebugLevel, "get-level", "", DN_CLI_ACCESS_LOGIN },
+     49              { NULL, NULL, NULL, DN_CLI_ACCESS_NONE },
+     50          };
+     51          */
+     52          
+     53          /******************************************************************************
+     54          *
+     55          *  Function    : void InitDebug()
+     56          *  Description : Initialize interface for printing debugging statements, and 
+     57          *				 accepting debug commands.
+     58          *
+     59          ******************************************************************************/
+     60          
+     61          void InitDebug()
+     62          {
+     63              cli_task_init( "Mote_App", NULL );
+     64          }
+     65          
+     66          
+     67          /******************************************************************************
+     68          *
+     69          *  Function    : void SetDebugLevel(int level)
+     70          *  Description : Set debug level used for filtering debug output
+     71          *
+     72          ******************************************************************************/
+     73          /*
+     74          dn_error_t SetDebugLevel(const char* arg, unsigned len)
+     75          {
+     76              int level;
+     77          
+     78              // Read parameter
+     79              int result = sscanf( arg, "%d", &level );
+     80              if( 1 > result )
+     81              {
+     82          	return DN_ERR_INVALID;
+     83              }
+     84          
+     85              mDebugLevel = level;
+     86              dnm_ucli_printf( "Debug level set: %d", mDebugLevel );
+     87          
+     88              return DN_ERR_NONE;
+     89          }
+     90          */
+     91          
+     92          /******************************************************************************
+     93          *
+     94          *  Function    : int GetDebugLevel(void)
+     95          *  Description : Print current level of debug setting
+     96          *
+     97          ******************************************************************************/
+     98          /*
+     99          dn_error_t GetDebugLevel(const char *arg, unsigned len)
+    100          {
+    101              dnm_ucli_printf( "Current debug level: %d", mDebugLevel );
+    102              return DN_ERR_NONE;
+    103          }
+    104          */
+    105          
+    106          /******************************************************************************
+    107          *
+    108          *  Function    : void debugPrint(int level, char * fmtstring, ...)
+    109          *  Description : For printing debugging statements
+    110          *
+    111          ******************************************************************************/
+    112          
+    113          void DbgPrint(int level, const char *fmtstring, ...)
+    114          {
+    115              if( level >= mDebugLevel )
+    116              {   
+    117                  /*
+    118                  // Build the time stamp string
+    119                  time_t now = time( NULL );
+    120                  struct tm *tp = localtime( &now );
+    121                  char timeStamp[32];
+    122          	memset( (void *)&timeStamp, 0, sizeof(timeStamp) );
+    123          	snprintf( (char *)&timeStamp[0],
+    124                            (sizeof(timeStamp) - 1),
+    125                            "[%02d%02d%04d %02d:%02d:%02d.%03d] ",
+    126                            tp->tm_mon + 1, tp->tm_mday, tp->tm_year + 1900, tp->tm_hour, tp->tm_min, tp->tm_sec, tb->millitm);
+    127                  */
+    128          	// Build the formatted print string
+    129          	char data[256];
+    130          	memset( (void *)&data, 0, sizeof(data) );
+    131          	va_list args;
+    132          	va_start( args, fmtstring );
+    133          	vsnprintf( (char *)&data[0],
+    134          		   (sizeof(data) - 1),
+    135          		   fmtstring,
+    136          		   args );
+    137          	va_end( args );
+    138          
+    139          	// Print to terminal based on level setting
+    140          	// dnm_ucli_printf( "%s", (const char *)&timeStamp[0] );
+    141          	dnm_ucli_printf( "%s", (const char *)&data[0] );
+    142              }
+    143          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+     272   DbgPrint
+       272   -> __aeabi_memclr4
+       272   -> dnm_ucli_printf
+       272   -> vsnprintf
+       0   InitDebug
+         0   -> cli_task_init
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable3
+      12  ?_0
+       4  ?_1
+      50  DbgPrint
+      10  InitDebug
+       4  mDebugLevel
+
+ 
+  4 bytes in section .bss
+  4 bytes in section .rodata
+ 76 bytes in section .text
+ 
+ 76 bytes of CODE  memory
+  4 bytes of CONST memory
+  4 bytes of DATA  memory
+
+Errors: none
+Warnings: none

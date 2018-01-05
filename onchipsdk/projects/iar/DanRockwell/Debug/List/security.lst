@@ -1,0 +1,587 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:49
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\security.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC3AE.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\security.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\security.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\security.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\security.c
+      1          /*
+      2           *	Copyright (c) 2013, Dust Networks.  All rights reserved.
+      3           */
+      4          
+      5          #include "dn_common.h"
+      6          #include "string.h"
+      7          #include "stdio.h"
+      8          #include "cli_task.h"
+      9          #include "loc_task.h"
+     10          #include "dn_security.h"
+     11          #include "dn_exe_hdr.h"
+     12          #include "Ver.h"
+     13          #include "dnm_ucli.h"
+     14          
+     15          
+     16          //=========================== prototypes ======================================
+     17          
+     18          dn_error_t cli_cbcCmdHandler(const char* arg, unsigned len);
+     19          dn_error_t cli_ctrCmdHandler(const char* arg, unsigned len);
+     20          dn_error_t cli_ccm1CmdHandler(const char* arg, unsigned len);
+     21          dn_error_t cli_ccm2CmdHandler(const char* arg, unsigned len);
+     22          dn_error_t cli_ccm3CmdHandler(const char* arg, unsigned len);
+     23          
+     24          
+     25          //=========================== const ===========================================
+     26          
+     27          // Test vectors for the CTR and CBC-MAC modes
+     28          const unsigned char security_key[] =
+     29          {
+     30             0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 
+     31             0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+     32          };
+     33          
+     34          const unsigned char security_inBuf[] =
+     35          {
+     36             0x00, 0x11, 0x22, 0x34, 0x44, 0x55, 0x66, 0x77,
+     37             0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+     38          };
+     39          
+     40          // Test vectors for the CCM* mode
+     41          // Section "C.2.1 MAC beacon frame": authentication only (8-byte MIC)
+     42          // Buffer to authenticate only
+     43          const unsigned char ccm1_a[] =
+     44          {
+     45             0x08, 0xD0, 0x84, 0x21, 0x43, 0x01, 0x00, 0x00,
+     46             0x00, 0x00, 0x48, 0xDE, 0xAC, 0x02, 0x05, 0x00,
+     47             0x00, 0x00, 0x55, 0xCF, 0x00, 0x00, 0x51, 0x52,
+     48             0x53, 0x54
+     49          };
+     50          
+     51          // Buffer to authenticate and encrypt
+     52          const unsigned char ccm1_nonce[] =
+     53          {
+     54             0xAC, 0xDE, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01,
+     55             0x00, 0x00, 0x00, 0x05, 0x02
+     56          };
+     57          
+     58          // Section "C.2.2 MAC data frame": encryption only
+     59          // Buffer to authenticate only
+     60          const unsigned char ccm2_a[] =
+     61          {
+     62             0x69, 0xDC, 0x84, 0x21, 0x43, 0x02, 0x00, 0x00,
+     63             0x00, 0x00, 0x48, 0xDE, 0xAC, 0x01, 0x00, 0x00,
+     64             0x00, 0x00, 0x48, 0xDE, 0xAC, 0x04, 0x05, 0x00,
+     65             0x00, 0x00
+     66          };
+     67          
+     68          // Buffer to authenticate and encrypt
+     69          const unsigned char ccm2_m[] =
+     70          {
+     71             0x61, 0x62, 0x63, 0x64
+     72          };
+     73          
+     74          const unsigned char ccm2_nonce[] =
+     75          {
+     76             0xAC, 0xDE, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01,
+     77             0x00, 0x00, 0x00, 0x05, 0x04
+     78          };
+     79          
+     80          // Section "C.2.3 MAC command frame": encryption and authentication (8-byte MIC)
+     81          // Buffer to authenticate only
+     82          const unsigned char ccm3_a[] =
+     83          {
+     84             0x2B, 0xDC, 0x84, 0x21, 0x43, 0x02, 0x00, 0x00,
+     85             0x00, 0x00, 0x48, 0xDE, 0xAC, 0xFF, 0xFF, 0x01,
+     86             0x00, 0x00, 0x00, 0x00, 0x48, 0xDE, 0xAC, 0x06,
+     87             0x05, 0x00, 0x00, 0x00, 0x01
+     88          };
+     89          
+     90          // Buffer to authenticate and encrypt
+     91          const unsigned char ccm3_m[] =
+     92          {
+     93             0xCE
+     94          };
+     95          
+     96          const unsigned char ccm3_nonce[] =
+     97          {
+     98             0xAC, 0xDE, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01,
+     99             0x00, 0x00, 0x00, 0x05, 0x06
+    100          };
+    101          
+    102          
+    103          const dnm_ucli_cmdDef_t cliCommandDefs[] = 
+    104          {
+    105             {&cli_ctrCmdHandler,      "ctr",    "",       DN_CLI_ACCESS_LOGIN},
+    106             {&cli_cbcCmdHandler,      "cbc",    "",       DN_CLI_ACCESS_LOGIN},
+    107             {&cli_ccm1CmdHandler,     "ccm1",   "",       DN_CLI_ACCESS_LOGIN},
+    108             {&cli_ccm2CmdHandler,     "ccm2",   "",       DN_CLI_ACCESS_LOGIN},
+    109             {&cli_ccm3CmdHandler,     "ccm3",   "",       DN_CLI_ACCESS_LOGIN},
+    110             {NULL,                    NULL,     NULL,     DN_CLI_ACCESS_NONE},
+    111          };
+    112          
+    113          
+    114          //=========================== variables =======================================
+    115          
+    116          // Variables local to this application.
+    117          typedef struct 
+    118          {
+    119          	unsigned char           inBuf[16];
+    120          	unsigned char           outBuf[16];
+    121          	unsigned char           key[16];
+    122          	unsigned char           iv[16];
+    123          	unsigned char           mic[16];
+    124          } security_app_vars_t;
+    125          
+    126          security_app_vars_t security_app_vars;
+    127          
+    128          
+    129          //=========================== initialization ==================================
+    130          
+    131          /**
+    132           *	This is the entry point for the application code.
+    133           */
+    134          int InitSecurity(void) 
+    135          {
+    136             // Initialize helper tasks
+    137             cli_task_init(
+    138                "security",                           // appName
+    139                cliCommandDefs            
+    140             );
+    141             
+    142             // local interface task
+    143             loc_task_init(
+    144                JOIN_NO,                              // fJoin
+    145                NETID_NONE,                           // netId
+    146                UDPPORT_NONE,                         // udpPort
+    147                NULL,                                 // joinedSem
+    148                BANDWIDTH_NONE,                       // bandwidth
+    149                NULL                                  // serviceSem
+    150             );
+    151             
+    152             return 0;
+    153          }
+    154          
+    155          
+    156          /**
+    157           *	ctr': CTR AES mode
+    158           */
+    159          dn_error_t cli_ctrCmdHandler(const char* arg, unsigned len)
+    160          {
+    161             // prepare paramaters
+    162             memcpy(security_app_vars.inBuf,     &security_inBuf,    16);
+    163             memcpy(security_app_vars.key,       &security_key,      16);
+    164             memset(security_app_vars.iv,        0,                  16);
+    165             
+    166             // print
+    167             dnm_ucli_printf("params:\r\r\n");
+    168             dnm_ucli_printf(" - key:        ");
+    169             dnm_ucli_printBuf(security_app_vars.key,     sizeof(security_app_vars.key));
+    170             dnm_ucli_printf(" - iv:         ");
+    171             dnm_ucli_printBuf(security_app_vars.iv,      sizeof(security_app_vars.iv));
+    172             
+    173             // print
+    174             dnm_ucli_printf("input:\r\r\n");
+    175             dnm_ucli_printf(" - plaintext:  ");
+    176             dnm_ucli_printBuf(security_app_vars.inBuf,   sizeof(security_app_vars.inBuf));
+    177             
+    178             // encrypt
+    179             dn_sec_aesCtr(
+    180                security_app_vars.inBuf,         // inBuf
+    181                security_app_vars.outBuf,        // outBuf
+    182                sizeof(security_app_vars.inBuf), // len
+    183                security_app_vars.key,           // key
+    184                security_app_vars.iv             // iv
+    185             );
+    186             
+    187             // print
+    188             dnm_ucli_printf("output:\r\r\n");
+    189             dnm_ucli_printf(" - ciphertext: ");
+    190             dnm_ucli_printBuf(security_app_vars.outBuf,  sizeof(security_app_vars.outBuf));
+    191             
+    192             security_app_vars.outBuf[5] ^= 0x01;
+    193             
+    194             // decrypt (same operation as encrypt, inBuf and outBuf inverted)
+    195             dn_sec_aesCtr(
+    196                security_app_vars.outBuf,        // inBuf
+    197                security_app_vars.inBuf,         // outBuf
+    198                sizeof(security_app_vars.inBuf), // len
+    199                security_app_vars.key,           // key
+    200                security_app_vars.iv             // iv
+    201             );
+    202             
+    203             // print
+    204             dnm_ucli_printf("output:\r\r\n");
+    205             dnm_ucli_printf(" - decrypted:  ");
+    206             dnm_ucli_printBuf(security_app_vars.inBuf,  sizeof(security_app_vars.inBuf));
+    207             
+    208             return DN_ERR_NONE;
+    209          }
+    210          
+    211          
+    212          /*
+    213           *	'cbc': CBC-MAC AES mode
+    214           */
+    215          dn_error_t cli_cbcCmdHandler(const char* arg, unsigned len)
+    216          {
+    217             // prepare paramaters
+    218             memcpy(security_app_vars.inBuf,     &security_inBuf,    16);
+    219             memcpy(security_app_vars.key,       &security_key,      16);
+    220             memset(security_app_vars.iv,        0,                  16);
+    221             
+    222             // print
+    223             dnm_ucli_printf("params:\r\r\n");
+    224             dnm_ucli_printf(" - key:        ");
+    225             dnm_ucli_printBuf(security_app_vars.key,     sizeof(security_app_vars.key));
+    226             dnm_ucli_printf(" - iv:         ");
+    227             dnm_ucli_printBuf(security_app_vars.iv,      sizeof(security_app_vars.iv));
+    228             
+    229             // print
+    230             dnm_ucli_printf("input:\r\r\n");
+    231             dnm_ucli_printf(" - inBuf:      ");
+    232             dnm_ucli_printBuf(security_app_vars.inBuf,   sizeof(security_app_vars.inBuf));
+    233             
+    234             // create MIC
+    235             dn_sec_aesCbcMac(
+    236                security_app_vars.inBuf,         // inBuf
+    237                sizeof(security_app_vars.inBuf), // len
+    238                security_app_vars.key,           // key
+    239                security_app_vars.iv,            // iv
+    240                security_app_vars.mic            // mic
+    241             );
+    242             
+    243             // print
+    244             dnm_ucli_printf("output:\r\r\n");
+    245             dnm_ucli_printf(" - mic:        ");
+    246             dnm_ucli_printBuf(security_app_vars.mic,     sizeof(security_app_vars.mic));
+    247             
+    248             return DN_ERR_NONE;
+    249          }
+    250          
+    251          
+    252          /**
+    253           *	'ccm': CCM* AES mode
+    254           */
+    255          dn_error_t cli_ccm1CmdHandler(const char* arg, unsigned len)
+    256          {
+    257             dn_sec_ccmopt_t	dn_sec_ccmopt;
+    258             unsigned char	aBuf[sizeof(ccm1_a)];
+    259             
+    260             dnm_ucli_printf("Test vector from \"C.2.1 MAC beacon frame\"\r\r\n");
+    261             
+    262             // Size of CCM authentication field (MIC); range: 4-16.
+    263             dn_sec_ccmopt.M = 8;
+    264             // Size of CCM length field; range: 2-8.
+    265             dn_sec_ccmopt.L = 2;
+    266             // buffer to authenticate only
+    267             memcpy(aBuf,                        &ccm1_a,            sizeof(ccm1_a));
+    268             // key
+    269             memcpy(security_app_vars.key,       &security_key,      sizeof(security_key));
+    270             // nonce/initialization vector
+    271             memcpy(security_app_vars.iv,        &ccm1_nonce,        sizeof(ccm1_nonce));
+    272             
+    273             // print
+    274             dnm_ucli_printf("params:\r\r\n");
+    275             dnm_ucli_printf(" - M:          %d\r\r\n",dn_sec_ccmopt.M);
+    276             dnm_ucli_printf(" - L:          %d\r\r\n",dn_sec_ccmopt.L);
+    277             dnm_ucli_printf(" - key:       ");
+    278             dnm_ucli_printBuf(security_app_vars.key,     sizeof(security_app_vars.key));
+    279             dnm_ucli_printf(" - nonce:     ");
+    280             dnm_ucli_printBuf(security_app_vars.iv,      sizeof(security_app_vars.iv));
+    281             
+    282             // print
+    283             dnm_ucli_printf("input:\r\r\n");
+    284             dnm_ucli_printf(" - aBuf:      ");
+    285             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    286             
+    287             // encrypt and authenticate
+    288             dn_sec_aesCcmEncrypt(
+    289                &dn_sec_ccmopt,             // opt
+    290                aBuf,                       // aBuf
+    291                sizeof(aBuf),               // aLen
+    292                NULL,                       // mBuf
+    293                0,                          // mLen
+    294                security_app_vars.key,      // key
+    295                security_app_vars.iv,       // nonce
+    296                security_app_vars.mic       // mic
+    297             );
+    298             
+    299             // print
+    300             dnm_ucli_printf("output:\r\r\n");
+    301             dnm_ucli_printf(" - aBuf:      ");
+    302             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    303             dnm_ucli_printf(" - mic:       ");
+    304             dnm_ucli_printBuf(security_app_vars.mic,     8);
+    305             
+    306             return DN_ERR_NONE;
+    307          }
+    308          
+    309          
+    310          dn_error_t cli_ccm2CmdHandler(const char* arg, unsigned len)
+    311          {
+    312             dn_sec_ccmopt_t	dn_sec_ccmopt;
+    313             unsigned char	aBuf[sizeof(ccm2_a)];
+    314             unsigned char	mBuf[sizeof(ccm2_m)];
+    315             
+    316             dnm_ucli_printf("Test vector from \"C.2.2 MAC data frame\"\r\r\n");
+    317             
+    318             // Size of CCM authentication field (MIC); range: 4-16.
+    319             dn_sec_ccmopt.M = 4;
+    320             // Size of CCM length field; range: 2-8.
+    321             dn_sec_ccmopt.L = 2;
+    322             // buffer to authenticate only
+    323             memcpy(aBuf,                        &ccm2_a,            sizeof(ccm2_a));
+    324             // buffer to authenticate and encrypt
+    325             memcpy(mBuf,                        &ccm2_m,            sizeof(ccm2_m));
+    326             // key
+    327             memcpy(security_app_vars.key,       &security_key,      sizeof(security_key));
+    328             // nonce/initialization vector
+    329             memcpy(security_app_vars.iv,        &ccm2_nonce,        sizeof(ccm1_nonce));
+    330             
+    331             // print
+    332             dnm_ucli_printf("params:\r\r\n");
+    333             dnm_ucli_printf(" - M:          %d\r\r\n",dn_sec_ccmopt.M);
+    334             dnm_ucli_printf(" - L:          %d\r\r\n",dn_sec_ccmopt.L);
+    335             dnm_ucli_printf(" - key:       ");
+    336             dnm_ucli_printBuf(security_app_vars.key,     sizeof(security_app_vars.key));
+    337             dnm_ucli_printf(" - nonce:     ");
+    338             dnm_ucli_printBuf(security_app_vars.iv,      sizeof(security_app_vars.iv));
+    339             
+    340             // print
+    341             dnm_ucli_printf("input:\r\r\n");
+    342             dnm_ucli_printf(" - aBuf:      ");
+    343             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    344             dnm_ucli_printf(" - mBuf:      ");
+    345             dnm_ucli_printBuf(mBuf,                      sizeof(mBuf));
+    346             
+    347             // encrypt and authenticate
+    348             dn_sec_aesCcmEncrypt(
+    349                &dn_sec_ccmopt,             // opt
+    350                aBuf,                       // aBuf
+    351                sizeof(aBuf),               // aLen
+    352                mBuf,                       // mBuf
+    353                sizeof(mBuf),               // mLen
+    354                security_app_vars.key,      // key
+    355                security_app_vars.iv,       // nonce
+    356                security_app_vars.mic       // mic
+    357             );
+    358              
+    359             // print
+    360             dnm_ucli_printf("output:\r\r\n");
+    361             dnm_ucli_printf(" - aBuf:      ");
+    362             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    363             dnm_ucli_printf(" - mBuf:      ");
+    364             dnm_ucli_printBuf(mBuf,                      sizeof(mBuf));
+    365             
+    366             return DN_ERR_NONE;
+    367          }
+    368          
+    369          
+    370          dn_error_t cli_ccm3CmdHandler(const char* arg, unsigned len)
+    371          {
+    372             dn_sec_ccmopt_t	dn_sec_ccmopt;
+    373             unsigned char	aBuf[sizeof(ccm3_a)];
+    374             unsigned char	mBuf[sizeof(ccm3_m)];
+    375             
+    376             dnm_ucli_printf("Test vector from \"C.2.3 MAC command frame\"\r\r\n");
+    377             
+    378             // Size of CCM authentication field (MIC); range: 4-16.
+    379             dn_sec_ccmopt.M = 8;
+    380             // Size of CCM length field; range: 2-8.
+    381             dn_sec_ccmopt.L = 2;
+    382             // buffer to authenticate only
+    383             memcpy(aBuf,                        &ccm3_a,            sizeof(ccm3_a));
+    384             // buffer to authenticate and encrypt
+    385             memcpy(mBuf,                        &ccm3_m,            sizeof(ccm3_m));
+    386             // key
+    387             memcpy(security_app_vars.key,       &security_key,      sizeof(security_key));
+    388             // nonce/initialization vector
+    389             memcpy(security_app_vars.iv,        &ccm3_nonce,        sizeof(ccm3_nonce));
+    390             
+    391             // print
+    392             dnm_ucli_printf("params:\r\r\n");
+    393             dnm_ucli_printf(" - M:          %d\r\r\n",dn_sec_ccmopt.M);
+    394             dnm_ucli_printf(" - L:          %d\r\r\n",dn_sec_ccmopt.L);
+    395             dnm_ucli_printf(" - key:       ");
+    396             dnm_ucli_printBuf(security_app_vars.key,     sizeof(security_app_vars.key));
+    397             dnm_ucli_printf(" - nonce:     ");
+    398             dnm_ucli_printBuf(security_app_vars.iv,      sizeof(security_app_vars.iv));
+    399             
+    400             // print
+    401             dnm_ucli_printf("input:\r\r\n");
+    402             dnm_ucli_printf(" - aBuf:      ");
+    403             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    404             dnm_ucli_printf(" - mBuf:      ");
+    405             dnm_ucli_printBuf(mBuf,                      sizeof(mBuf));
+    406             
+    407             // encrypt and authenticate
+    408             dn_sec_aesCcmEncrypt(
+    409                &dn_sec_ccmopt,             // opt
+    410                aBuf,                       // aBuf
+    411                sizeof(aBuf),               // aLen
+    412                mBuf,                       // mBuf
+    413                sizeof(mBuf),               // mLen
+    414                security_app_vars.key,      // key
+    415                security_app_vars.iv,       // nonce
+    416                security_app_vars.mic       // mic
+    417             );
+    418             
+    419             // print
+    420             dnm_ucli_printf("output:\r\r\n");
+    421             dnm_ucli_printf(" - aBuf:      ");
+    422             dnm_ucli_printBuf(aBuf,                      sizeof(aBuf));
+    423             dnm_ucli_printf(" - mBuf:      ");
+    424             dnm_ucli_printBuf(mBuf,                      sizeof(mBuf));
+    425             dnm_ucli_printf(" - mic:       ");
+    426             dnm_ucli_printBuf(security_app_vars.mic,     8);
+    427             
+    428             return DN_ERR_NONE;
+    429          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      16   InitSecurity
+        16   -> cli_task_init
+        16   -> loc_task_init
+      24   cli_cbcCmdHandler
+        24   -> dn_sec_aesCbcMac
+        24   -> dnm_ucli_printBuf
+        24   -> dnm_ucli_printf
+      64   cli_ccm1CmdHandler
+        64   -> __aeabi_memcpy4
+        64   -> dn_sec_aesCcmEncrypt
+        64   -> dnm_ucli_printBuf
+        64   -> dnm_ucli_printf
+      72   cli_ccm2CmdHandler
+        72   -> __aeabi_memcpy4
+        72   -> dn_sec_aesCcmEncrypt
+        72   -> dnm_ucli_printBuf
+        72   -> dnm_ucli_printf
+      72   cli_ccm3CmdHandler
+        72   -> __aeabi_memcpy4
+        72   -> dn_sec_aesCcmEncrypt
+        72   -> dnm_ucli_printBuf
+        72   -> dnm_ucli_printf
+      24   cli_ctrCmdHandler
+        24   -> dn_sec_aesCtr
+        24   -> dnm_ucli_printBuf
+        24   -> dnm_ucli_printf
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable40
+       8  ?Subroutine0
+       6  ?Subroutine1
+       6  ?Subroutine10
+       8  ?Subroutine11
+       8  ?Subroutine12
+       8  ?Subroutine13
+       6  ?Subroutine14
+      10  ?Subroutine15
+      16  ?Subroutine16
+       8  ?Subroutine17
+      12  ?Subroutine18
+      12  ?Subroutine19
+      52  ?Subroutine2
+      14  ?Subroutine20
+      16  ?Subroutine3
+      10  ?Subroutine4
+      16  ?Subroutine5
+       6  ?Subroutine6
+       8  ?Subroutine7
+      10  ?Subroutine8
+       8  ?Subroutine9
+       4  ?_0
+       1  ?_1
+      12  ?_10
+      16  ?_11
+      12  ?_12
+      16  ?_13
+      16  ?_14
+      16  ?_15
+      16  ?_16
+      48  ?_17
+      24  ?_18
+      24  ?_19
+       4  ?_2
+      16  ?_20
+      16  ?_21
+      16  ?_22
+      16  ?_23
+      44  ?_24
+      16  ?_25
+      48  ?_26
+       8  ?_3
+       8  ?_4
+       8  ?_5
+      12  ?_6
+      12  ?_7
+      16  ?_8
+      16  ?_9
+      34  InitSecurity
+      28  ccm1_a
+      16  ccm1_nonce
+      28  ccm2_a
+       4  ccm2_m
+      16  ccm2_nonce
+      32  ccm3_a
+       1  ccm3_m
+      16  ccm3_nonce
+      96  cliCommandDefs
+      94  cli_cbcCmdHandler
+     156  cli_ccm1CmdHandler
+     160  cli_ccm2CmdHandler
+     196  cli_ccm3CmdHandler
+     150  cli_ctrCmdHandler
+      80  security_app_vars
+      16  security_inBuf
+      16  security_key
+
+ 
+    80 bytes in section .bss
+    33 bytes in section .rodata
+ 1 739 bytes in section .text
+ 
+ 1 739 bytes of CODE  memory
+    33 bytes of CONST memory
+    80 bytes of DATA  memory
+
+Errors: none
+Warnings: none

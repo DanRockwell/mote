@@ -1,0 +1,176 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:49
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\time.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC622.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\time.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\time.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\time.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\time.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to receive time notifactions and helpers for time reports.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          
+     10          // C includes
+     11          #include <string.h>
+     12          #include <stdio.h>
+     13          #include <stdlib.h>
+     14          
+     15          // SDK includes
+     16          #include "dn_system.h"
+     17          #include "dn_fs.h"
+     18          #include "dn_api_param.h"
+     19          #include "dn_exe_hdr.h"
+     20          #include "dn_common.h"
+     21          #include "dn_system.h"
+     22          #include "dn_time.h"
+     23          #include "dn_api_local.h"
+     24          #include "dnm_local.h"
+     25          
+     26          // App includes
+     27          #include "debug.h"
+     28          #include "time.h"
+     29          
+     30          
+     31          //=========================== variables =======================================
+     32          
+     33          typedef struct 
+     34          {
+     35             dn_time_asn_t             currentASN;
+     36             dn_time_utc_t             currentUTC;
+     37             long long                 sysTime;
+     38             dn_api_loc_notif_time_t   timeNotif;
+     39          } time_app_vars_t;
+     40          
+     41          static time_app_vars_t mTimeParams;
+     42          
+     43          
+     44          //=========================== prototypes ======================================
+     45          
+     46          static dn_error_t TimeNotificationCallback(dn_api_loc_notif_time_t* timeNotif, unsigned char length);
+     47          
+     48          
+     49          /**
+     50           *	Create notification to receive time callbacks
+     51           */
+     52          void InitTime( void )
+     53          {
+     54          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Time Interface\r\n" );
+     55          
+     56          	// Register a callback for when receiving a time notification
+     57          	dnm_loc_registerTimeNotifCallback( TimeNotificationCallback );
+     58          }
+     59          
+     60          
+     61          static dn_error_t TimeNotificationCallback(dn_api_loc_notif_time_t* timeNotif, unsigned char length)
+     62          {
+     63          	// copy notification to local variables for simpler debugging
+     64          	memcpy( &mTimeParams.timeNotif, timeNotif,length ); 
+     65          	DbgPrint( DBG_LEVEL_INFO, "STATUS. System Up Time:  %d sec\r\n", htonl(mTimeParams.timeNotif.upTime) );
+     66             
+     67          	return DN_ERR_NONE;
+     68          }
+     69          
+     70          
+     71          void GetTimeSlotTime( char *time )
+     72          {
+     73          	// Get Nntwork time
+     74          	dn_getNetworkTime( &mTimeParams.currentASN, &mTimeParams.currentUTC );
+     75          	sprintf( time, "%s", (char *)&mTimeParams.currentASN );
+     76          	DbgPrint(DBG_LEVEL_INFO, "STATUS. Absolute Time Slot: %d\r\n", (unsigned)mTimeParams.currentASN.asn);
+     77          }
+     78          
+     79          
+     80          void GetTimeUTC( long long *timeUTC )
+     81          {
+     82          	// Get system time in sec from epoch
+     83          	dn_getSystemTime( (INT64U *)&mTimeParams.sysTime );
+     84          	*timeUTC = mTimeParams.sysTime;
+     85          	DbgPrint( DBG_LEVEL_INFO, "STATUS. UTC Time: %s\r\n", mTimeParams.sysTime );
+     86          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      16   GetTimeSlotTime
+         0   -> DbgPrint
+        16   -> dn_getNetworkTime
+        16   -> sprintf
+      16   GetTimeUTC
+         0   -> DbgPrint
+        16   -> dn_getSystemTime
+       8   InitTime
+         8   -> DbgPrint
+         0   -> dnm_loc_registerTimeNotifCallback
+       8   TimeNotificationCallback
+         8   -> DbgPrint
+         8   -> __aeabi_memcpy
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable8
+       4  ??DataTable8_1
+      40  ?_0
+      36  ?_1
+       4  ?_2
+      36  ?_3
+      24  ?_4
+      44  GetTimeSlotTime
+      42  GetTimeUTC
+      24  InitTime
+      54  TimeNotificationCallback
+      72  mTimeParams
+
+ 
+  72 bytes in section .bss
+   4 bytes in section .rodata
+ 308 bytes in section .text
+ 
+ 308 bytes of CODE  memory
+   4 bytes of CONST memory
+  72 bytes of DATA  memory
+
+Errors: none
+Warnings: none

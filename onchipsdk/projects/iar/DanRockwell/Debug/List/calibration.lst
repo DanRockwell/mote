@@ -1,0 +1,295 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:46
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\calibration.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWBB82.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\calibration.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\calibration.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\calibration.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\calibration.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to configure channels and GPIO.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          
+     16          // SDK includes
+     17          #include "dn_system.h"
+     18          #include "dn_fs.h"
+     19          #include "dn_api_param.h"
+     20          #include "dn_exe_hdr.h"
+     21          #include "dn_common.h"
+     22          #include "dn_system.h"
+     23          
+     24          // App includes
+     25          #include "debug.h"
+     26          #include "config.h"
+     27          #include "flash.h"
+     28          #include "calibration.h"
+     29          #include "spline.h"
+     30          #include "ltc2984.h"
+     31          #include "radio.h"
+     32          
+     33          
+     34          //=========================== module parameters ======================================
+     35          
+     36          static ChannelCalibration_t mChannelCalibration[TOTAL_NUMBER_OF_CHANNELS];
+     37          static OS_EVENT	*mDataLock;
+     38          static Spline_t *mCalibrationSplines[TOTAL_NUMBER_OF_CHANNELS];
+     39          
+     40          
+     41          //=========================== prototypes ======================================
+     42          
+     43          static void LockData( void );
+     44          static void UnlockData( void );
+     45          static void BuildSplines( void );
+     46          
+     47          /**
+     48           *	Initialize the system configurator
+     49           */
+     50          void InitCalibration( void )
+     51          {
+     52          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Calirbation Manager\r\n" );
+     53          
+     54          	// Create shared data lock
+     55          	mDataLock = OSSemCreate(1);
+     56          
+     57          	// Read calibration from FLASH
+     58          	memset( &mChannelCalibration[0], 0, sizeof(mChannelCalibration) );
+     59          	if (ReadCalibrationFromFlash((unsigned char *)&mChannelCalibration[0], sizeof(mChannelCalibration)))
+     60          	{
+     61          		DbgPrint( DBG_LEVEL_INFO, "STATUS. Read calibraiton, building splines\r\n" );
+     62          		BuildSplines();
+     63          	}
+     64          	else
+     65          	{
+     66          		DbgPrint( DBG_LEVEL_INFO, "ERROR. Failed to read Configuration from FLASH\r\n" );
+     67          	}
+     68          }
+     69          
+     70          
+     71          /**
+     72           *	Update the configuration for selected channel and reconfiguration LTC2984
+     73           */
+     74          void SetChannelCalibration(unsigned char channel, unsigned char *calibration)
+     75          {
+     76          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Updating calibration\r\n" );
+     77          
+     78          	LockData();
+     79          
+     80          	memcpy( (void *)&mChannelCalibration[channel], 
+     81                          (const void *)calibration,
+     82          		sizeof(ChannelConfiguration_t) );
+     83          
+     84          	// Write new configuration to FLASH
+     85          	if( WriteCalibrationToFlash( (unsigned char *)&mChannelCalibration[0],
+     86                                               (unsigned)(sizeof(ChannelCalibration_t) * TOTAL_NUMBER_OF_CHANNELS) ) )
+     87          	{
+     88          		DbgPrint( DBG_LEVEL_INFO, "ERROR. Failed to write calibration to FLASH\r\n" );
+     89          	}
+     90          
+     91          	// Rebuild splines with new calibraiton
+     92          	BuildSplines();
+     93          
+     94          	UnlockData();
+     95          }
+     96          
+     97          
+     98          void GetChannelCalibration(unsigned char channel, unsigned char *calibration)
+     99          {
+    100          	LockData();
+    101          	memcpy( (void *)calibration, (const void *)&mChannelCalibration[channel], sizeof(ChannelCalibration_t) );
+    102          	UnlockData();
+    103          }
+    104          
+    105          
+    106          static void LockData( void )
+    107          {
+    108          	unsigned char osErr;
+    109          	OSSemPend( mDataLock, 0, &osErr );
+    110          }
+    111          
+    112          
+    113          static void UnlockData(void)
+    114          {
+    115          	OSSemPost( mDataLock );
+    116          }
+    117          
+    118          
+    119          static void BuildSplines( void )
+    120          {
+    121          	LockData();
+    122          	for (int i = 0; i < TOTAL_NUMBER_OF_CHANNELS; i++)
+    123          	{
+    124          		// Delete old spline if one exists
+    125          		if( NULL != mCalibrationSplines[i] )
+    126          		{
+    127          			free( (void *)mCalibrationSplines[i] );
+    128          			mCalibrationSplines[i] = NULL;
+    129          		}
+    130          
+    131          		// Create spline if data is available
+    132          		if (0 < mChannelCalibration[i].numberOfPoints)
+    133          		{
+    134          			int numberOfPoints = 1;
+    135          			float offsets[kMaxCalibrationPoints + 2];
+    136          			float axis[kMaxCalibrationPoints + 2];
+    137          			memset((void *)&offsets[0], 0, (sizeof(float) * (kMaxCalibrationPoints + 2)));
+    138          			memset((void *)&axis[0], 0, (sizeof(float) * (kMaxCalibrationPoints + 2)));
+    139          			if( 1 == mChannelCalibration[i].numberOfPoints )
+    140          			{
+    141          				offsets[0] = mChannelCalibration[i].data[0].measuredTemperature - mChannelCalibration[i].data[0].actualTemperature;
+    142          				axis[0] = mChannelCalibration[i].data[0].measuredTemperature;
+    143          			}
+    144          			else
+    145          			{
+    146          				offsets[0] = mChannelCalibration[i].data[0].measuredTemperature - mChannelCalibration[i].data[0].actualTemperature;
+    147          				axis[0] = -273.0f;
+    148          				for (int j = 0; j < kMaxCalibrationPoints; j++)
+    149          				{
+    150          					offsets[j + 1] = mChannelCalibration[i].data[j].measuredTemperature - mChannelCalibration[i].data[j].actualTemperature;
+    151          					axis[j + 1] = mChannelCalibration[i].data[j].measuredTemperature;
+    152          				}
+    153          				offsets[mChannelCalibration[i].numberOfPoints + 1] = offsets[mChannelCalibration[i].numberOfPoints];
+    154          				axis[mChannelCalibration[i].numberOfPoints + 1] = 100.0f;
+    155          				numberOfPoints = mChannelCalibration[i].numberOfPoints + 2;
+    156          			}
+    157          			Spline_Create( (Spline_t *)&mCalibrationSplines[i], mChannelCalibration[i].numberOfPoints );
+    158          			Spline_Setup( (Spline_t *)&mCalibrationSplines[i], numberOfPoints, &axis[0], &offsets[0] );
+    159          		}
+    160          	}
+    161          	UnlockData();
+    162          }
+    163          
+    164          
+    165          float GetTemperatureCalibrationValue(unsigned char channel, float inVal)
+    166          {
+    167          	float calValue = 0.0f;
+    168          
+    169          	LockData();
+    170          	if( NULL != mCalibrationSplines[channel] )
+    171          	{
+    172          		calValue = Spline_Calc( (Spline_t *)&mCalibrationSplines[channel], inVal );
+    173          	}
+    174          	UnlockData();
+    175          
+    176          	return( calValue );
+    177          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      80   BuildSplines
+        80   -> LockData
+        80   -> Spline_Create
+        80   -> Spline_Setup
+        80   -> UnlockData
+        80   -> __aeabi_fsub
+        80   -> __aeabi_memclr4
+        80   -> free
+      16   GetChannelCalibration
+        16   -> LockData
+         0   -> UnlockData
+        16   -> __aeabi_memcpy
+      16   GetTemperatureCalibrationValue
+        16   -> LockData
+        16   -> Spline_Calc
+        16   -> UnlockData
+       8   InitCalibration
+         0   -> BuildSplines
+         0   -> DbgPrint
+         8   -> DbgPrint
+         8   -> OSSemCreate
+         8   -> ReadCalibrationFromFlash
+         8   -> __aeabi_memclr4
+       8   LockData
+         8   -> OSSemPend
+      16   SetChannelCalibration
+        16   -> BuildSplines
+        16   -> DbgPrint
+        16   -> LockData
+         0   -> UnlockData
+        16   -> WriteCalibrationToFlash
+        16   -> __aeabi_memcpy
+       0   UnlockData
+         0   -> OSSemPost
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable11
+       4  ??DataTable11_1
+       4  ??DataTable11_2
+       4  ??DataTable11_3
+       4  ??DataTable11_4
+       6  ?Subroutine0
+      44  ?_0
+      48  ?_1
+      52  ?_2
+      32  ?_3
+      48  ?_4
+     200  BuildSplines
+      30  GetChannelCalibration
+      40  GetTemperatureCalibrationValue
+      72  InitCalibration
+      16  LockData
+      64  SetChannelCalibration
+       8  UnlockData
+      36  mCalibrationSplines
+     396  mChannelCalibration
+       4  mDataLock
+
+ 
+ 436 bytes in section .bss
+ 680 bytes in section .text
+ 
+ 680 bytes of CODE memory
+ 436 bytes of DATA memory
+
+Errors: none
+Warnings: none

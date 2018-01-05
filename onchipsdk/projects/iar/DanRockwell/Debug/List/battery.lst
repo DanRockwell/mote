@@ -1,0 +1,273 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:46
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\battery.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWB7F8.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\battery.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\battery.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\battery.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\battery.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Application used to configure and control the LTC2984 ADC.
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          //=========================== includes =====================================
+     10          
+     11          // C includes
+     12          #include <string.h>
+     13          #include <stdio.h>
+     14          #include <stdlib.h>
+     15          
+     16          // SDK includes
+     17          #include "dn_common.h"
+     18          #include "dn_system.h"
+     19          #include "dn_adc.h"
+     20          #include "dn_exe_hdr.h"
+     21          #include "dn_gpio.h"
+     22          #include "cli_task.h"
+     23          #include "loc_task.h"
+     24          #include "app_task_cfg.h"
+     25          
+     26          // App includes
+     27          #include "debug.h"
+     28          #include "gpio.h"
+     29          #include "battery.h"
+     30          #include "radio.h"
+     31          
+     32          
+     33          #define TASK_APP_BATTERY_STK_SIZE	256
+     34          #define TASK_APP_BATTERY_PRIORITY	53
+     35          //#define TASK_APP_BATTERY_NAME		"TASK_BATTERY"
+     36          
+     37          #define BATTERY_MONITOR_ENABLE		DN_GPIO_PIN_1_DEV_ID
+     38          
+     39          #define kBatteryImpedanceThreshold	1
+     40          
+     41          
+     42          //=========================== variables =======================================
+     43          
+     44          typedef struct 
+     45          {
+     46             OS_STK	batteryTaskStack[TASK_APP_BATTERY_STK_SIZE];
+     47          } BatteryParams_t;
+     48          
+     49          static BatteryParams_t  mBatteryParams;
+     50          static OS_EVENT	        *mBatterMonitorSemaphore;
+     51          
+     52          
+     53          //=========================== prototypes ======================================
+     54          
+     55          static void BatteryTask( void* unused );
+     56          
+     57          
+     58          /**
+     59           *	Initialize battery health monitor task
+     60           */
+     61          void InitBattery( void )
+     62          {
+     63            // Create the battery task
+     64          	DbgPrint(DBG_LEVEL_INFO, "STATUS. Initializing Battery Monitor Task\r\n");
+     65          
+     66          	// Create semaphore for task control
+     67          	mBatterMonitorSemaphore = OSSemCreate(1);
+     68          
+     69          	unsigned char osErr = OSTaskCreateExt(BatteryTask,
+     70          						(void *)0,
+     71          								  (OS_STK *)(&mBatteryParams.batteryTaskStack[TASK_APP_BATTERY_STK_SIZE - 1]),
+     72          								  TASK_APP_BATTERY_PRIORITY,
+     73          								  TASK_APP_BATTERY_PRIORITY,
+     74          								  (OS_STK *)mBatteryParams.batteryTaskStack,
+     75          								  TASK_APP_BATTERY_STK_SIZE,
+     76          								  (void *)0,
+     77          								  OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR );
+     78          
+     79             OSTaskNameSet(TASK_APP_BATTERY_PRIORITY, (unsigned char *)TASK_APP_BATTERY_NAME, &osErr);
+     80          }
+     81          
+     82          
+     83          /**
+     84          *	Signal semaphore to run battery monitor task.
+     85          */
+     86          void CheckBatteryHealth( void )
+     87          {
+     88          	DbgPrint(DBG_LEVEL_INFO, "STATUS. Signaling battery health check task\r\n");
+     89          	unsigned char osErr = OSSemPost(mBatterMonitorSemaphore);
+     90          }
+     91          
+     92          
+     93          /**
+     94           *	Battery monitor task
+     95           */
+     96          static void BatteryTask( void *unused )
+     97          {
+     98          	unsigned char	          osErr;
+     99          	dn_adc_drv_open_args_t    openArgs;
+    100                
+    101          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Running Battery Monitor Task\r\n" );
+    102          
+    103          	// Configure battery monitor enable interface
+    104          	GpioConfigPin(BATTERY_MONITOR_ENABLE, DN_IOCTL_GPIO_CFG_OUTPUT, PIN_LOW);
+    105          
+    106          	while( 1 ) 
+    107          	{
+    108          		/////////////////////////////////
+    109          		// Read the open circuit voltage
+    110          		GpioWrite( BATTERY_MONITOR_ENABLE, PIN_LOW );
+    111          		OSTimeDly( 10 );
+    112          
+    113          		// Wait on start signal
+    114          		DbgPrint(DBG_LEVEL_INFO, "STATUS. LTC2984 Waiting for battery monitor Start\r\n");
+    115          		OSSemPend(mBatterMonitorSemaphore, 0, &osErr );
+    116          
+    117          		// Open battery sensor with no load 
+    118          		memset(&openArgs, 0, sizeof(dn_adc_drv_open_args_t));
+    119          		openArgs.loadBattery = DN_ADC_LOAD_BATT_NONE;
+    120          		dn_open( DN_ADC_AI_0_DEV_ID,	
+    121          			&openArgs,				
+    122          			sizeof(openArgs) );  
+    123          
+    124          		// Read battery value with no load
+    125          		unsigned short openCircuitVoltage;
+    126          		dn_read( DN_ADC_AI_0_DEV_ID,				
+    127          			(char*)&openCircuitVoltage,		
+    128          			sizeof(openCircuitVoltage) );	
+    129          
+    130          		dn_close(DN_ADC_AI_0_DEV_ID);
+    131          
+    132          		/////////////////////////////////
+    133          		// Read the Load circuit voltage
+    134          		GpioWrite( BATTERY_MONITOR_ENABLE, PIN_HIGH );
+    135          		OSTimeDly(10);
+    136          
+    137          		// Open battery sensor with 500 Ohm load 
+    138          		memset( &openArgs, 0, sizeof(dn_adc_drv_open_args_t) );
+    139          		openArgs.loadBattery = DN_ADC_LOAD_BATT_500_OHM;
+    140          		dn_open( DN_ADC_AI_0_DEV_ID,
+    141          						 &openArgs,
+    142          						 sizeof(openArgs) );
+    143          
+    144          		// Read battery value with 500 Ohm load
+    145          		unsigned short loadCircuitVoltage;
+    146          		dn_read( DN_ADC_AI_0_DEV_ID,				
+    147          			(char*)&loadCircuitVoltage,		
+    148          			sizeof(loadCircuitVoltage) );	 
+    149          
+    150          		/////////////////////////////////////////
+    151          		// Close device and remove load resistor
+    152          		dn_close( DN_ADC_AI_0_DEV_ID );
+    153          		GpioWrite( BATTERY_MONITOR_ENABLE, PIN_LOW );
+    154          
+    155          		//////////////////////////////////////////////
+    156          		// Battery Impedance = R (500 Ohms) / Voltage
+    157          		float batterImpedance = 500.0 * ((float)openCircuitVoltage / (float)loadCircuitVoltage - 1.0);
+    158          
+    159          		// Return to the open circuit voltage
+    160          		GpioWrite( BATTERY_MONITOR_ENABLE, PIN_LOW );
+    161          
+    162          		int batteryLife = (kBatteryImpedanceThreshold > batterImpedance) ? 1:0;
+    163          		DbgPrint( DBG_LEVEL_INFO, "STATUS. Battery V1: %f, V2: %f, Status: %d\r\n",
+    164          				  openCircuitVoltage, loadCircuitVoltage, batteryLife );
+    165          
+    166          		// Report results
+    167          		SendBatteryHealthReport( batteryLife, batterImpedance );
+    168          	}
+    169          }
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      48   BatteryTask
+        48   -> DbgPrint
+        48   -> GpioConfigPin
+        48   -> GpioWrite
+        48   -> OSSemPend
+        48   -> OSTimeDly
+        48   -> SendBatteryHealthReport
+        48   -> __aeabi_d2f
+        48   -> __aeabi_dadd
+        48   -> __aeabi_dmul
+        48   -> __aeabi_f2d
+        48   -> __aeabi_fdiv
+        48   -> __aeabi_ui2f
+        48   -> dn_close
+        48   -> dn_open
+        48   -> dn_read
+        48 __aeabi_cfcmple
+       8   CheckBatteryHealth
+         8   -> DbgPrint
+         0   -> OSSemPost
+      32   InitBattery
+        32   -> DbgPrint
+        32   -> OSSemCreate
+        32   -> OSTaskCreateExt
+        32   -> OSTaskNameSet
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable8
+       4  ??DataTable8_1
+       4  ??DataTable8_2
+       8  ?Subroutine0
+       6  ?Subroutine1
+      44  ?_0
+       8  ?_1
+      48  ?_2
+      40  ?_3
+      52  ?_4
+      48  ?_5
+     250  BatteryTask
+      22  CheckBatteryHealth
+      78  InitBattery
+    1028  mBatterMonitorSemaphore
+          mBatteryParams
+
+ 
+ 1 028 bytes in section .bss
+   616 bytes in section .text
+ 
+   616 bytes of CODE memory
+ 1 028 bytes of DATA memory
+
+Errors: none
+Warnings: none

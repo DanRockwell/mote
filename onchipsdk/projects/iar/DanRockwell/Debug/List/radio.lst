@@ -1,0 +1,728 @@
+###############################################################################
+#
+# IAR ANSI C/C++ Compiler V8.20.2.14835/W32 for ARM       04/Jan/2018  20:16:48
+# Copyright 1999-2017 IAR Systems AB.
+#
+#    Cpu mode     =  thumb
+#    Endian       =  little
+#    Source file  =  
+#        C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\radio.c
+#    Command line =  
+#        -f C:\Users\Dan\AppData\Local\Temp\EWC2B3.tmp
+#        (C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\radio.c
+#        -lcN
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List
+#        -o
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj
+#        --debug --endian=little --cpu=Cortex-M3 --enum_is_int --no_wchar -e
+#        --fpu=None --dlib_config "C:\Program Files (x86)\IAR Systems\Embedded
+#        Workbench 8.0\arm\INC\c\DLib_Config_Normal.h" --preinclude
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\all_projects.iarinc
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\src\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\DanRockwell\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\app\common\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\inc\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\clilib\
+#        -I
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\..\..\..\src\modules\ip_applib\
+#        -Ohz)
+#    Locale       =  C
+#    List file    =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\List\radio.lst
+#    Object file  =  
+#        C:\MackSystems\software\mote\onchipsdk\projects\iar\DanRockwell\Debug\Obj\radio.o
+#
+###############################################################################
+
+C:\MackSystems\software\mote\onchipsdk\src\app\DanRockwell\src\radio.c
+      1          /******************************************************************************
+      2          *	Copyright (c) 2016, Mack Informatcion Systems, In.  All rights reserved.
+      3          *
+      4          *	Radio interface for packet send and receive services
+      5          *
+      6          *	Author: Dan Rockwell
+      7          */
+      8          
+      9          #include <string.h>
+     10          #include <stdio.h>
+     11          #include <stdlib.h>
+     12          #include <stdbool.h>
+     13          #include <math.h>
+     14          
+     15          #include "os_cfg.h"
+     16          #include "os_cpu.h"
+     17          
+     18          #include "dn_common.h"
+     19          #include "dn_exe_hdr.h"
+     20          #include "loc_task.h"
+     21          #include "dnm_local.h"
+     22          #include "debug.h"
+     23          #include "radio.h"
+     24          #include "version.h"
+     25          #include "config.h"
+     26          #include "alarm.h"
+     27          #include "flash.h"
+     28          #include "gpio.h"
+     29          
+     30          
+     31          //=========================== defines =========================================
+     32          
+     33          #define MAX_NUMBER_OF_MESSAGES		10
+     34          #define TASK_APP_RADIO_STK_SIZE		256
+     35          #define TASK_APP_RADIO_PRIORITY		53
+     36          #define TASK_APP_RADIO_NAME			"TASK_RADIO"
+     37          
+     38          
+     39          //=========================== variables =======================================
+     40          
+     41          typedef struct 
+     42          {
+     43          	OS_EVENT*	joinedSem;
+     44          	OS_STK		radioTaskStack[TASK_APP_RADIO_STK_SIZE];
+     45          } join_app_vars_t;
+     46          
+     47          join_app_vars_t		mRadioVars;
+     48          static OS_EVENT		*mDataLock;
+     49          
+     50          static unsigned char mQueuedMsgCount;
+     51          static unsigned char mEnqueueIndex;
+     52          static unsigned char mDequeueIndex;
+     53          static unsigned char mMessageQueue[256];
+     54          
+     55          
+     56          //=========================== prototypes ======================================
+     57          
+     58          static void		SendTask( void* unused );
+     59          static bool		DataToSend( void );
+     60          static void             EnqueuePacket(unsigned char *packet, int length);
+     61          static void		DequeuePacket(unsigned char *packet, unsigned char *length);
+     62          static void		LockData(void);
+     63          static void		UnlockData(void);
+     64          static void		GetTemperatureAlarm(unsigned char *data, unsigned char length);
+     65          static void		GetDigitalEventReport(unsigned char *data, unsigned char length);
+     66          static void		SetChannelConfig(unsigned char *data, unsigned char length);
+     67          static void		GetChannelConfig(unsigned char *data, unsigned char length);
+     68          static void		SetChannelCal(unsigned char *data, unsigned char length);
+     69          static void		GetCalibration(unsigned char *data, unsigned char length);
+     70          static void		SetSerialNumber(unsigned char *data, unsigned char length);
+     71          static void		GetSerialNumber(unsigned char *data, unsigned char length);
+     72          static void		GetFirmwareVersion(unsigned char *data, unsigned char length);
+     73          static void		GetUncalibratedTemperatures(unsigned char *data, unsigned char length);
+     74          dn_error_t		RxNotifyCallback(dn_api_loc_notif_received_t* rxFrame, unsigned char length);
+     75          static void             ProcessIncomingMessage(unsigned char *data, unsigned length);
+     76          static void             PerformPressToTest(unsigned char *data, unsigned char length);
+     77          
+     78          
+     79          //=========================== initialization ==================================
+     80          
+     81          void InitRadio( void )
+     82          {
+     83          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Initializing Radio Manager\r\n" );
+     84          
+     85          	unsigned char  osErr;
+     86             
+     87          	// Create semaphore for loc_task to indicate when joined
+     88          	mRadioVars.joinedSem = OSSemCreate(0);
+     89             
+     90          	// Create shared data lock
+     91          	mDataLock = OSSemCreate(1);
+     92          
+     93          	// Initialize helper tasks
+     94          	loc_task_init(	JOIN_YES,				// fJoin
+     95          					NULL,					// netId
+     96          					60000,					// udpPort
+     97          					mRadioVars.joinedSem,	// joinedSem
+     98          					BANDWIDTH_NONE,			// bandwidth
+     99          					NULL );					// serviceSem
+    100             
+    101          	// Register a callback for when receiving a packet
+    102          	dnm_loc_registerRxNotifCallback( RxNotifyCallback );
+    103             
+    104          
+    105          	// Initialize sendTask
+    106          	osErr = OSTaskCreateExt(  SendTask,
+    107          							  (void *) 0,
+    108          							  (OS_STK *)(&mRadioVars.radioTaskStack[TASK_APP_RADIO_STK_SIZE - 1]),
+    109          							  TASK_APP_RADIO_PRIORITY,
+    110          							  TASK_APP_RADIO_PRIORITY,
+    111          							  (OS_STK *)mRadioVars.radioTaskStack,
+    112          							  TASK_APP_RADIO_STK_SIZE,
+    113          							  (void *)0,
+    114          							  OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR );
+    115             
+    116          	OSTaskNameSet(TASK_APP_RADIO_PRIORITY, (unsigned char *)TASK_APP_RADIO_NAME, &osErr);
+    117          }
+    118          
+    119          
+    120          static void SendTask( void* unused ) 
+    121          {
+    122          	unsigned char	osErr;
+    123          	unsigned char	pkBuf[sizeof(loc_sendtoNW_t) + 64];
+    124          	loc_sendtoNW_t	*pkToSend;
+    125          	unsigned char	rc;
+    126          
+    127          	// Wait for the loc_task to finish joining the network
+    128          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Waiting for network join\r\n" );
+    129          	OSSemPend( mRadioVars.joinedSem, 0, &osErr );
+    130             
+    131          	DbgPrint( DBG_LEVEL_INFO, "STATUS. Radio joined network\r\n" );
+    132          
+    133          	while( 1 ) 
+    134          	{     
+    135          		// Wait for queued packets
+    136          		if (false == DataToSend())
+    137          		{
+    138          			OSTimeDly(  (10 * OS_TICKS_PER_SEC) );
+    139          			continue;
+    140          		}
+    141          
+    142          		// prepare packet to send
+    143          		memset( pkBuf, 0, sizeof(pkBuf) );
+    144          		pkToSend = (loc_sendtoNW_t *)pkBuf;
+    145          		pkToSend->locSendTo.socketId	= loc_getSocketId();
+    146          		pkToSend->locSendTo.destAddr    = DN_MGR_IPV6_MULTICAST_ADDR;
+    147          		pkToSend->locSendTo.destPort    = 60000;
+    148          		pkToSend->locSendTo.serviceType = DN_API_SERVICE_TYPE_BW;   
+    149          		pkToSend->locSendTo.priority    = DN_API_PRIORITY_MED;   
+    150          		pkToSend->locSendTo.packetId    = 0xFFFF;
+    151          
+    152          		unsigned char length = 0;
+    153          		DequeuePacket((unsigned char *)&pkToSend->locSendTo.payload[0], &length);
+    154                
+    155          		// Send packet
+    156          		unsigned char dnErr = dnm_loc_sendtoCmd( pkToSend, length, &rc );
+    157          		if( rc == DN_API_RC_OK ) 
+    158          		{
+    159          			DbgPrint(DBG_LEVEL_INFO, "STATUS. Radio Manager Sent packet\r\n");
+    160          		} 
+    161          		else 
+    162          		{
+    163          			DbgPrint(DBG_LEVEL_INFO, "ERROR. Radio Manager Send Error, 0x%02x\r\n", rc );
+    164          		}
+    165          	}
+    166          }
+    167          
+    168          
+    169          dn_error_t RxNotifyCallback(dn_api_loc_notif_received_t* rxFrame, unsigned char length)
+    170          {
+    171          	unsigned char i;
+    172             
+    173          	DbgPrint(DBG_LEVEL_INFO, "packet received:\r\r\n");
+    174          	DbgPrint(DBG_LEVEL_INFO, " - sourceAddr: ");
+    175          	for( i = 0; i < sizeof(dn_ipv6_addr_t); i++ ) 
+    176          	{
+    177          		DbgPrint(DBG_LEVEL_INFO, "%02x", ((unsigned char *)&(rxFrame->sourceAddr))[i]);
+    178          	}
+    179          	DbgPrint(DBG_LEVEL_INFO, "\r\r\n");
+    180          	DbgPrint(DBG_LEVEL_INFO, " - sourcePort: %d\r\r\n", rxFrame->sourcePort);
+    181          	DbgPrint(DBG_LEVEL_INFO, " - data:       (%d bytes) ", (length - sizeof(dn_api_loc_notif_received_t)));
+    182          	for( i = 0; i < (length - sizeof(dn_api_loc_notif_received_t)); i++ ) 
+    183          	{
+    184          		DbgPrint(DBG_LEVEL_INFO, "%02x", rxFrame->data[i]);
+    185          	}
+    186          	DbgPrint(DBG_LEVEL_INFO, "\r\r\n");
+    187          	ProcessIncomingMessage((unsigned char *)&rxFrame->data[0], (unsigned char)(length - sizeof(dn_api_loc_notif_received_t)));
+    188          
+    189          	return DN_ERR_NONE;
+    190          }
+    191          
+    192          
+    193          void SendTemperatures(unsigned char channel, float temperature)
+    194          {
+    195          	DbgPrint(DBG_LEVEL_INFO, "Sending new temperature readings\r\r\n");
+    196          	ReportDataMessage_t report;
+    197          	report.messageId	= kMessageIdChannelTemperature;
+    198          	report.messageSize	= sizeof(report);
+    199          	report.channelNumber	= channel;
+    200          	report.alarmId		= kAlarmId_None;
+    201          	report.temperature	= temperature;
+    202          	EnqueuePacket((unsigned char *)&report, sizeof(report));
+    203          }
+    204          
+    205          
+    206          void SendAlarm(unsigned char channel, unsigned char error, float temperature)
+    207          {
+    208          	DbgPrint(DBG_LEVEL_INFO, "Sending new alarm readings\r\r\n");
+    209          	ReportDataMessage_t report;
+    210          	report.messageId		= kMessageIdChannelTemperature;
+    211          	report.messageSize		= sizeof(report);
+    212          	report.channelNumber	= channel;
+    213          	report.alarmId			= error;
+    214          	report.temperature		= temperature;
+    215          	EnqueuePacket((unsigned char *)&report, sizeof(report));
+    216          }
+    217          
+    218          
+    219          void SendDigitalIOReport( unsigned char event1, unsigned char event2, unsigned char relayState )
+    220          {
+    221          	DbgPrint(DBG_LEVEL_INFO, "Sending digital-io readings\r\r\n");
+    222          	ReportEventMessage_t report;
+    223          	report.messageId	= kMessageIdDigitIOEvent;
+    224          	report.messageSize	= sizeof(report);
+    225          	report.event1		= event1;
+    226          	report.event2		= event2;
+    227          	report.relayState	= relayState;
+    228          	EnqueuePacket((unsigned char *)&report, sizeof(report));
+    229          }
+    230          
+    231          
+    232          void SendChannelConfig(unsigned char channel)
+    233          {
+    234          	DbgPrint(DBG_LEVEL_INFO, "Sending channel configuration\r\r\n");
+    235          	ChannelConfigurationMessage_t message;
+    236          	message.messageId		= kMessageIdChannelConfiguration;
+    237          	message.messageSize		= sizeof(message);
+    238          	GetChannelCalibration(channel, (unsigned char *)&message.config);
+    239          	EnqueuePacket((unsigned char *)&message, sizeof(message));
+    240          }
+    241          
+    242          
+    243          void SendSerialNumber( void )
+    244          {
+    245          	DbgPrint(DBG_LEVEL_INFO, "Sending serial numner\r\r\n");
+    246          	SerialNumberMessage_t message;
+    247          	message.messageId   = kGetMoteSerialNumber;
+    248          	message.messageSize = sizeof(message);
+    249          	ReadSerialNumberFromFlash((unsigned char *)&message.serialNumber[0], kSerialNumberLength);
+    250          	EnqueuePacket((unsigned char *)&message, sizeof(message));
+    251          }
+    252          
+    253          
+    254          void SendFirmwareVersion( void )
+    255          {
+    256          	DbgPrint(DBG_LEVEL_INFO, "Sending version\r\r\n");
+    257          	FirmwareVersionMessage_t message;
+    258          	message.messageId			= kMessageIdFirmwareVersion;
+    259          	message.messageSize			= sizeof(message);
+    260          	message.majorVerionsNumber	= FirmwareVersion[0];
+    261          	message.minorVersionNumber	= FirmwareVersion[1];
+    262          	message.patchVersionNumber	= FirmwareVersion[2];
+    263          	message.buildVersionNumber	= FirmwareVersion[3];
+    264          	EnqueuePacket((unsigned char *)&message, sizeof(message));
+    265          }
+    266          
+    267          
+    268          void SendChannelCalibration(unsigned char channel)
+    269          {
+    270          	DbgPrint(DBG_LEVEL_INFO, "Sending channel calibration\r\r\n");
+    271          	GetChannelCalibration_t message;
+    272          	message.messageId       = kMessageIdChannelCalibration;
+    273          	message.messageSize	= sizeof(message);
+    274          	GetChannelCalibration(channel, (unsigned char *)&message.calibration);
+    275          	EnqueuePacket((unsigned char *)&message, sizeof(message));
+    276          }
+    277          
+    278          
+    279          static bool DataToSend( void )
+    280          {
+    281          	LockData();
+    282          	bool dataReady = (0 < mQueuedMsgCount) ? true : false;
+    283          	UnlockData();
+    284          	return( dataReady );
+    285          }
+    286          
+    287          
+    288          static void EnqueuePacket(unsigned char *packet, int length)
+    289          {
+    290          	LockData();
+    291          
+    292          	int i;
+    293          	for( i = 0; i < length; i++ )
+    294          	{
+    295          		mMessageQueue[mEnqueueIndex] = *packet;
+    296          		mEnqueueIndex = (mEnqueueIndex + 1) % sizeof(mMessageQueue);
+    297          		packet++;
+    298          	}
+    299          	mQueuedMsgCount++;
+    300          
+    301          	UnlockData();
+    302          }
+    303          
+    304          
+    305          static void DequeuePacket(unsigned char *packet, unsigned char *length)
+    306          {
+    307          	LockData();
+    308          
+    309          	// First bytes is always message Id
+    310          	*packet       = mMessageQueue[mDequeueIndex];
+    311          	mDequeueIndex = (mDequeueIndex + 1) % sizeof(mMessageQueue);
+    312          	packet++;
+    313          
+    314          	// Second byte is always message length
+    315          	*length		  = mMessageQueue[mDequeueIndex];
+    316          	*packet		  = mMessageQueue[mDequeueIndex];
+    317          	mDequeueIndex = (mDequeueIndex + 1) % sizeof(mMessageQueue);
+    318          	packet++;
+    319          
+    320          	// Read remainder of packet
+    321          	int i;
+    322          	for( i = 0; i < (*length - 2); i++ )
+    323          	{
+    324          		*packet       = mMessageQueue[mDequeueIndex];
+    325          		mDequeueIndex = (mDequeueIndex + 1) % sizeof(mMessageQueue);
+    326          		packet++;
+    327          	}
+    328          	mQueuedMsgCount--;
+    329          
+    330          	UnlockData();
+    331          }
+    332          
+    333          
+    334          static void LockData(void)
+    335          {
+    336          	unsigned char osErr;
+    337          	OSSemPend(mDataLock, 0, &osErr);
+    338          }
+    339          
+    340          
+    341          static void UnlockData(void)
+    342          {
+    343          	OSSemPost(mDataLock);
+    344          }
+    345          
+    346          
+    347          static void ProcessIncomingMessage(unsigned char *data, unsigned length)
+    348          {
+    349          	unsigned char msgId = *data;
+    350          
+    351          	switch( msgId )
+    352          	{
+    353          		case kMessageIdChannelConfiguration:
+    354          			GetTemperatureAlarm(data, length);
+    355          			break;
+    356          
+    357          		case kGetDigitalIOReport:
+    358          			GetDigitalEventReport(data, length);
+    359          			break;
+    360          
+    361          		case kSetChannelConfiguration:
+    362          			SetChannelConfig(data, length);
+    363          			break;
+    364          
+    365          		case kGetChannelConfiguration:
+    366          			GetChannelConfig(data, length);
+    367          			break;
+    368          
+    369          		case kSetChannelCalibration:
+    370          			SetChannelCal(data, length);
+    371          			break;
+    372          
+    373          		case kGetChannelCalibration:
+    374          			GetCalibration(data, length);
+    375          			break;
+    376          
+    377          		case kSetMoteSerialNumber:
+    378          			SetSerialNumber(data, length);
+    379          			break;
+    380          
+    381          		case kGetMoteSerialNumber:
+    382          			GetSerialNumber(data, length);
+    383          			break;
+    384          
+    385          		case kGetMoteFirmwareVersion:
+    386          			GetFirmwareVersion(data, length);
+    387          			break;
+    388          
+    389          		case kGetUncalibratedTemperatures:
+    390          			GetUncalibratedTemperatures(data, length);
+    391          			break;
+    392          
+    393          		case kPerformPressToTest:
+    394          			PerformPressToTest(data, length);
+    395          			break;
+    396          
+    397          		default:
+    398          			break;
+    399          	}
+    400          }
+    401          
+    402          
+    403          static void GetTemperatureAlarm(unsigned char *data, unsigned char length)
+    404          {
+    405          	DbgPrint(DBG_LEVEL_INFO, "Getting channel temperature reading\r\r\n");
+    406          	GetChannelMessage_t *request = (GetChannelMessage_t *)data;
+    407          	AdcReading_t response;
+    408          	memset(&response, 0, sizeof(response));
+    409          	GetChannelReading(request->channelNumber, &response);
+    410          
+    411          	ReportDataMessage_t report;
+    412          	report.messageId	= kMessageIdChannelConfiguration;
+    413          	report.messageSize	= sizeof(report);
+    414          	report.channelNumber    = request->channelNumber;
+    415          	report.alarmId		= response.status;
+    416          	report.temperature      = response.temperature;
+    417          	EnqueuePacket((unsigned char *)&report, sizeof(report));
+    418          }
+    419          
+    420          
+    421          static void GetDigitalEventReport(unsigned char *data, unsigned char length)
+    422          {
+    423          	DbgPrint(DBG_LEVEL_INFO, "Getting event report\r\r\n");
+    424          	unsigned char event1;
+    425          	unsigned char event2;
+    426          	unsigned char relayState;
+    427          	GetEventData( &event1, &event2, &relayState );
+    428          	
+    429          	ReportEventMessage_t report;
+    430          	report.messageId	= kGetDigitalIOReport;
+    431          	report.messageSize	= sizeof(report);
+    432          	report.event1		= event1;
+    433          	report.event2		= event2;
+    434          	report.relayState	= relayState;
+    435          	EnqueuePacket((unsigned char *)&report, sizeof(report));
+    436          }
+    437          
+    438          
+    439          static void SetChannelConfig(unsigned char *data, unsigned char length)
+    440          {
+    441          	DbgPrint(DBG_LEVEL_INFO, "Updating channel configuration\r\r\n");
+    442          	ChannelConfigurationMessage_t *config = (ChannelConfigurationMessage_t *)data;
+    443          	SetChannelConfiguration(config->config.channelNumber, (unsigned char *)&config->config);
+    444          }
+    445          
+    446          
+    447          static void GetChannelConfig(unsigned char *data, unsigned char length)
+    448          {
+    449          	DbgPrint(DBG_LEVEL_INFO, "Getting channel configuration\r\r\n");
+    450          	GetChannelConfiguration_t *request = (GetChannelConfiguration_t *)data;
+    451          	ChannelConfigurationMessage_t config;
+    452          	config.messageId        = kGetChannelConfiguration;
+    453          	config.messageSize      = sizeof(ChannelConfigurationMessage_t);
+    454          	GetChannelConfiguration(request->channelNumber, (unsigned char *)&config.config);
+    455          	EnqueuePacket((unsigned char *)&config, sizeof(config));
+    456          }
+    457          
+    458          
+    459          static void SetChannelCal(unsigned char *data, unsigned char length)
+    460          {
+    461          	DbgPrint(DBG_LEVEL_INFO, "Updating channel calibration\r\r\n");
+    462          	ChannelCalibrationMessage_t *cal = (ChannelCalibrationMessage_t *)data;
+    463          	SetChannelCalibration( cal->calibration.channelNumber, (unsigned char *)&cal->calibration.data[cal->calibration.channelNumber] );
+    464          }
+    465          
+    466          
+    467          static void GetCalibration(unsigned char *data, unsigned char length)
+    468          {
+    469          	GetChannelCalibration_t *request = (GetChannelCalibration_t *)data;
+    470          	ChannelCalibrationMessage_t cal;
+    471          	cal.messageId   = kGetChannelCalibration;
+    472          	cal.messageSize = sizeof(ChannelCalibrationMessage_t);
+    473          	GetChannelCalibration(request->calibration.channelNumber, (unsigned char *)&cal.calibration);
+    474          	EnqueuePacket((unsigned char *)&cal, sizeof(cal));
+    475          }
+    476          
+    477          
+    478          static void SetSerialNumber(unsigned char *data, unsigned char length)
+    479          {
+    480          	SerialNumberMessage_t *serialNum = (SerialNumberMessage_t *)data;
+    481          	WriteSerialNumberToFlash((unsigned char *)&serialNum->serialNumber[0], kSerialNumberLength);
+    482          }
+    483          
+    484          
+    485          static void GetSerialNumber(unsigned char *data, unsigned char length)
+    486          {
+    487          	SendSerialNumber();
+    488          }
+    489          
+    490          
+    491          static void GetFirmwareVersion(unsigned char *data, unsigned char length)
+    492          {
+    493          	SendFirmwareVersion();
+    494          }
+    495          
+    496          
+    497          static void GetUncalibratedTemperatures(unsigned char *data, unsigned char length)
+    498          {
+    499          	GetUncalibratedTemperatures_t uncalData;
+    500          	uncalData.messageId = kGetUncalibratedTemperatures;
+    501          	uncalData.messageSize = sizeof(GetUncalibratedTemperatures_t);
+    502          	GetRawTemperatureReadings( &uncalData.channelConfig, &uncalData.temperatures[0] );
+    503          	EnqueuePacket((unsigned char *)&uncalData, sizeof(uncalData));
+    504          }
+    505          
+    506          
+    507          static void PerformPressToTest(unsigned char *data, unsigned char length)
+    508          {
+    509          	// Check the press to test channel
+    510          	float measured;
+    511          	float expected;
+    512          	float threshold;
+    513          	CheckTemperatureTestChannel( &measured, &expected, &threshold );
+    514          
+    515          	PressToTestResult_t result;
+    516          	result.messageId   = kPerformPressToTest;
+    517          	result.messageSize = sizeof(PressToTestResult_t);
+    518          	result.measured    = measured;
+    519          	result.expected    = expected;
+    520          	result.threshold   = threshold;
+    521          	result.passFail    = (threshold > fabs(measured - expected)) ? 0 : -1;
+    522          	EnqueuePacket((unsigned char *)&result, sizeof(result));
+    523          }
+    524          
+    525          
+    526          void SendBatteryHealthReport( int batteryLife, float batterImpedance )
+    527          {
+    528              // currently not implemented
+    529          }
+    530          
+
+   Maximum stack usage in bytes:
+
+   .cstack Function
+   ------- --------
+      16   EnqueuePacket
+        16   -> LockData
+         0   -> UnlockData
+      24   GetTemperatureAlarm
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+        24   -> GetChannelReading
+      32   InitRadio
+        32   -> DbgPrint
+        32   -> OSSemCreate
+        32   -> OSTaskCreateExt
+        32   -> OSTaskNameSet
+        32   -> dnm_loc_registerRxNotifCallback
+        32   -> loc_task_init
+       8   LockData
+         8   -> OSSemPend
+      64   ProcessIncomingMessage
+        64   -> CheckTemperatureTestChannel
+        64   -> DbgPrint
+        64   -> EnqueuePacket
+        64   -> GetChannelCalibration
+        64   -> GetChannelConfiguration
+        64   -> GetEventData
+        64   -> GetRawTemperatureReadings
+        64   -> GetTemperatureAlarm
+        64   -> SendFirmwareVersion
+        64   -> SendSerialNumber
+        64   -> SetChannelCalibration
+        64   -> SetChannelConfiguration
+        64   -> WriteSerialNumberToFlash
+        64   -> __aeabi_f2d
+        64   -> __aeabi_fsub
+        64 __aeabi_cdcmple
+      32   RxNotifyCallback
+        32   -> DbgPrint
+        32   -> ProcessIncomingMessage
+      24   SendAlarm
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+       0   SendBatteryHealthReport
+      56   SendChannelCalibration
+        56   -> DbgPrint
+        56   -> EnqueuePacket
+        56   -> GetChannelCalibration
+      48   SendChannelConfig
+        48   -> DbgPrint
+        48   -> EnqueuePacket
+        48   -> GetChannelCalibration
+      24   SendDigitalIOReport
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+      24   SendFirmwareVersion
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+      24   SendSerialNumber
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+        24   -> ReadSerialNumberFromFlash
+     136   SendTask
+       136   -> DbgPrint
+       136   -> LockData
+       136   -> OSSemPend
+       136   -> OSTimeDly
+       136   -> UnlockData
+       136   -> __aeabi_memclr4
+       136   -> __aeabi_memcpy
+       136   -> dnm_loc_sendtoCmd
+       136   -> loc_getSocketId
+      24   SendTemperatures
+        24   -> DbgPrint
+        24   -> EnqueuePacket
+       0   UnlockData
+         0   -> OSSemPost
+
+
+   Section sizes:
+
+   Bytes  Function/Label
+   -----  --------------
+       4  ??DataTable30
+       4  ??DataTable30_1
+       4  ??DataTable30_2
+       4  ??DataTable30_3
+       4  ??DataTable30_4
+       4  ??DataTable30_5
+       6  ?Subroutine0
+       8  ?Subroutine1
+       8  ?Subroutine2
+       6  ?Subroutine3
+      16  ?Subroutine4
+      18  ?Subroutine5
+       4  ?Subroutine6
+      40  ?_0
+      12  ?_1
+      24  ?_10
+      28  ?_11
+      36  ?_12
+      32  ?_13
+      32  ?_14
+      36  ?_15
+      28  ?_16
+      20  ?_17
+      32  ?_18
+      40  ?_19
+      36  ?_2
+      24  ?_20
+      36  ?_21
+      36  ?_22
+      32  ?_23
+      32  ?_3
+      36  ?_4
+      44  ?_5
+      20  ?_6
+      16  ?_7
+       8  ?_8
+       4  ?_9
+      48  EnqueuePacket
+       4  FirmwareVersion
+      66  GetTemperatureAlarm
+     116  InitRadio
+      16  LockData
+     338  ProcessIncomingMessage
+     132  RxNotifyCallback
+      30  SendAlarm
+       2  SendBatteryHealthReport
+      32  SendChannelCalibration
+      32  SendChannelConfig
+      30  SendDigitalIOReport
+      46  SendFirmwareVersion
+      38  SendSerialNumber
+     226  SendTask
+      46  SendTemperatures
+       8  UnlockData
+       4  mDataLock
+     256  mMessageQueue
+       3  mQueuedMsgCount
+          mEnqueueIndex
+          mDequeueIndex
+    1028  mRadioVars
+
+ 
+ 1 291 bytes in section .bss
+     8 bytes in section .rodata
+ 1 976 bytes in section .text
+ 
+ 1 976 bytes of CODE  memory
+     8 bytes of CONST memory
+ 1 291 bytes of DATA  memory
+
+Errors: none
+Warnings: none
